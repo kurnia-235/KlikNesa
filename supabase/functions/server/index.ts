@@ -617,12 +617,20 @@ async function sendOtpLogic(userId: string, phone: string): Promise<{ ok: boolea
 
   const wablasDomain = Deno.env.get('WABLAS_DOMAIN') ?? 'console.wablas.com';
   const wablasToken  = Deno.env.get('WABLAS_TOKEN') ?? '';
-  const wablasUrl    = `https://${wablasDomain}/api/send-message`;
-  const message      =
+
+  if (!wablasToken) {
+    console.error('[send-otp] WABLAS_TOKEN env var belum diset di Supabase secrets!');
+    return { ok: false, error: 'Konfigurasi Wablas belum diset di server. Hubungi admin.' };
+  }
+
+  // Wablas memakai format: token ada di URL path → https://{domain}/{token}/api/send-message
+  // Authorization header juga dikirim sebagai fallback untuk kompatibilitas lintas versi.
+  const wablasUrl = `https://${wablasDomain}/${wablasToken}/api/send-message`;
+  const message   =
     `[KlikNesa] Kode OTP Verifikasi Penjual Anda adalah: ${otp}. ` +
     `Jangan bagikan kode ini kepada siapa pun yaa.`;
 
-  console.log(`[send-otp] Menembak Wablas → URL: ${wablasUrl} | To: ${waPhone}`);
+  console.log(`[send-otp] Menembak Wablas → URL: https://${wablasDomain}/***token***/api/send-message | To: ${waPhone}`);
 
   // Try-catch eksplisit agar crash jaringan tidak menghancurkan seluruh request
   try {

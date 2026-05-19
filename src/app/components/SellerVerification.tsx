@@ -91,20 +91,27 @@ export default function SellerVerification() {
     setSendingOtp(false);
 
     if (error) {
-      // FunctionsHttpError.context = body JSON yang dikembalikan server
-      // Coba beberapa jalur untuk mendapat pesan yang bermakna:
-      //   ctx.error   → { error: '...' }    (format kita)
-      //   ctx.message → { message: '...' }  (format Supabase/Hono default)
-      //   ctx string  → body plain text
-      //   error.message → fallback SDK ('Edge Function returned a non-2xx status code')
-      const ctx = (error as any)?.context;
-      console.error('[send-otp] error:', error, '| context:', ctx);
-      const msg =
-        ctx?.error ??
-        ctx?.message ??
-        (typeof ctx === 'string' ? ctx : null) ??
-        error.message ??
-        'Gagal mengirim OTP.';
+      console.error('[send-otp] raw error:', error);
+      let msg = 'Gagal mengirim OTP.';
+      try {
+        const ctx = (error as any)?.context;
+        if (ctx && typeof (ctx as any).json === 'function') {
+          // SDK lama: context adalah Response object — perlu di-await
+          const body = await (ctx as any).clone().json().catch(() => null);
+          console.error('[send-otp] context (Response→json):', body);
+          msg = body?.error ?? body?.message ?? error.message ?? msg;
+        } else if (ctx && typeof ctx === 'object') {
+          // SDK baru: context sudah berupa parsed JSON object
+          console.error('[send-otp] context (object):', ctx);
+          msg = ctx?.error ?? ctx?.message ?? error.message ?? msg;
+        } else if (typeof ctx === 'string' && ctx) {
+          msg = ctx;
+        } else {
+          msg = error.message ?? msg;
+        }
+      } catch {
+        msg = error.message ?? msg;
+      }
       setOtpError(msg);
       return;
     }
@@ -124,14 +131,23 @@ export default function SellerVerification() {
     setVerifyingOtp(false);
 
     if (error) {
-      const ctx = (error as any)?.context;
-      console.error('[verify-otp] error:', error, '| context:', ctx);
-      const msg =
-        ctx?.error ??
-        ctx?.message ??
-        (typeof ctx === 'string' ? ctx : null) ??
-        error.message ??
-        'Kode OTP salah.';
+      console.error('[verify-otp] raw error:', error);
+      let msg = 'Kode OTP salah.';
+      try {
+        const ctx = (error as any)?.context;
+        if (ctx && typeof (ctx as any).json === 'function') {
+          const body = await (ctx as any).clone().json().catch(() => null);
+          msg = body?.error ?? body?.message ?? error.message ?? msg;
+        } else if (ctx && typeof ctx === 'object') {
+          msg = ctx?.error ?? ctx?.message ?? error.message ?? msg;
+        } else if (typeof ctx === 'string' && ctx) {
+          msg = ctx;
+        } else {
+          msg = error.message ?? msg;
+        }
+      } catch {
+        msg = error.message ?? msg;
+      }
       setOtpError(msg);
       return;
     }

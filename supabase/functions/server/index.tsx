@@ -597,9 +597,15 @@ async function sendOtpLogic(userId: string, phone: string): Promise<{ ok: boolea
   await kv.set(`otp:${userId}`, { code: otp, phone: waPhone, expiresAt: Date.now() + OTP_TTL_MS });
   const wablasDomain = Deno.env.get('WABLAS_DOMAIN') ?? 'console.wablas.com';
   const wablasToken  = Deno.env.get('WABLAS_TOKEN') ?? '';
-  const wablasUrl    = `https://${wablasDomain}/api/send-message`;
-  const message      = `[KlikNesa] Kode OTP Verifikasi Penjual Anda adalah: ${otp}. Jangan bagikan kode ini kepada siapa pun yaa.`;
-  console.log(`[send-otp] Menembak Wablas → ${wablasUrl} | To: ${waPhone}`);
+
+  if (!wablasToken) {
+    console.error('[send-otp] WABLAS_TOKEN env var belum diset di Supabase secrets!');
+    return { ok: false, error: 'Konfigurasi Wablas belum diset di server. Hubungi admin.' };
+  }
+
+  const wablasUrl = `https://${wablasDomain}/${wablasToken}/api/send-message`;
+  const message   = `[KlikNesa] Kode OTP Verifikasi Penjual Anda adalah: ${otp}. Jangan bagikan kode ini kepada siapa pun yaa.`;
+  console.log(`[send-otp] Menembak Wablas → https://${wablasDomain}/***token***/api/send-message | To: ${waPhone}`);
   try {
     const res = await fetch(wablasUrl, {
       method: 'POST',

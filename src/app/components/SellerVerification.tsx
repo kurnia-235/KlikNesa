@@ -9,22 +9,6 @@ import {
 } from 'lucide-react';
 import Layout from './Layout';
 
-// Base URL Edge Function yang sudah ter-deploy
-const EDGE_BASE = `https://${import.meta.env.VITE_SUPABASE_URL?.split('//')[1] ?? 'iqujmncndavirtgrvxpn.supabase.co'}/functions/v1/server/make-server-2fc7af5c`;
-
-async function edgePost(path: string, body: object, token: string) {
-  const res = await fetch(`${EDGE_BASE}${path}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  });
-  const json = await res.json().catch(() => ({ error: 'Respons tidak valid' }));
-  return { ok: res.ok, data: json };
-}
-
 export default function SellerVerification() {
   const { user, refreshProfile } = useAuth();
   const { language } = useLanguage();
@@ -96,21 +80,25 @@ export default function SellerVerification() {
     setOtpError('');
     setOtpInput('');
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? '';
+    // supabase.functions.invoke otomatis menyertakan Bearer token sesi aktif
+    // dan menangani CORS lewat Supabase client — tidak perlu raw fetch manual
+    const { data, error } = await supabase.functions.invoke(
+      'server/make-server-2fc7af5c/send-otp',
+      { body: { phone: waNumber } },
+    );
 
-      const { ok, data } = await edgePost('/send-otp', { phone: waNumber }, token);
-      if (!ok) {
-        setOtpError(data?.error ?? (language === 'en' ? 'Failed to send OTP.' : 'Gagal mengirim OTP.'));
-        return;
-      }
-      setOtpSent(true);
-    } catch {
-      setOtpError(language === 'en' ? 'Network error. Please try again.' : 'Error jaringan. Silakan coba lagi.');
-    } finally {
-      setSendingOtp(false);
+    setSendingOtp(false);
+
+    if (error) {
+      // FunctionsHttpError: .context berisi JSON body dari server { error: '...' }
+      // FunctionsFetchError: jaringan/CORS benar-benar gagal
+      const ctx = (error as any)?.context;
+      const msg = ctx?.error ?? error.message ?? 'Gagal mengirim OTP.';
+      setOtpError(msg);
+      return;
     }
+
+    setOtpSent(true);
   };
 
   const verifyOTP = async () => {
@@ -118,22 +106,22 @@ export default function SellerVerification() {
     setVerifyingOtp(true);
     setOtpError('');
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? '';
+    const { data, error } = await supabase.functions.invoke(
+      'server/make-server-2fc7af5c/verify-otp',
+      { body: { code: otpInput } },
+    );
 
-      const { ok, data } = await edgePost('/verify-otp', { code: otpInput }, token);
-      if (!ok) {
-        setOtpError(data?.error ?? (language === 'en' ? 'Incorrect OTP.' : 'Kode OTP salah.'));
-        return;
-      }
-      setVerifiedPhone(data.phone ?? '');
-      setWaVerified(true);
-    } catch {
-      setOtpError(language === 'en' ? 'Network error. Please try again.' : 'Error jaringan. Silakan coba lagi.');
-    } finally {
-      setVerifyingOtp(false);
+    setVerifyingOtp(false);
+
+    if (error) {
+      const ctx = (error as any)?.context;
+      const msg = ctx?.error ?? error.message ?? 'Kode OTP salah.';
+      setOtpError(msg);
+      return;
     }
+
+    setVerifiedPhone((data as any)?.phone ?? '');
+    setWaVerified(true);
   };
 
   const resetWA = () => {

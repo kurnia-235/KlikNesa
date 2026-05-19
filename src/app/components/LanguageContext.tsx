@@ -109,7 +109,10 @@ const translations: Translations = {
   'myListings.startSelling': { en: 'Start selling your preloved items to other UNESA students', id: 'Mulai jual barang bekas Anda ke mahasiswa UNESA lainnya' },
   'myListings.createFirst': { en: 'Create Your First Listing', id: 'Buat Daftar Pertama Anda' },
   'myListings.view': { en: 'View', id: 'Lihat' },
-  'myListings.active': { en: 'active', id: 'aktif' },
+  'myListings.active': { en: 'Active', id: 'Aktif' },
+  'myListings.available': { en: 'Available', id: 'Tersedia' },
+  'myListings.sold': { en: 'Sold', id: 'Terjual' },
+  'myListings.inactive': { en: 'Inactive', id: 'Nonaktif' },
 
   // Create Listing
   'createListing.title': { en: 'Create Listing', id: 'Buat Daftar' },
@@ -123,8 +126,11 @@ const translations: Translations = {
   'createListing.creating': { en: 'Creating...', id: 'Membuat...' },
   'createListing.titlePlaceholder': { en: 'e.g., Calculus Textbook (9th Edition)', id: 'contoh: Buku Kalkulus (Edisi ke-9)' },
   'createListing.descPlaceholder': { en: "Describe the item's condition, features, etc.", id: 'Jelaskan kondisi barang, fitur, dll.' },
-  'createListing.imageUpload': { en: 'Image upload coming soon', id: 'Unggah gambar segera hadir' },
-  'createListing.imageHelp': { en: 'You can add images to your listing after creation', id: 'Anda dapat menambahkan gambar setelah membuat daftar' },
+  'createListing.whatsapp': { en: 'WhatsApp Number', id: 'Nomor WhatsApp' },
+  'createListing.whatsappPlaceholder': { en: 'e.g., 08123456789', id: 'contoh: 08123456789' },
+  'createListing.imageUpload': { en: 'Click to upload product photo', id: 'Klik untuk unggah foto produk' },
+  'createListing.imageHelp': { en: 'JPG, JPEG, or PNG format. Max 5MB.', id: 'Format JPG, JPEG, atau PNG. Maks 5MB.' },
+  'createListing.imageChange': { en: 'Click to change photo', id: 'Klik untuk ganti foto' },
 
   // Conversations
   'conversations.title': { en: 'Messages', id: 'Pesan' },

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from './AuthContext';
 import { useLanguage } from './LanguageContext';
-import { serverUrl } from '../../../utils/supabase/client';
+import { supabase } from '../../../utils/supabase/client';
 import { ArrowLeft, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import Layout from './Layout';
 
@@ -15,11 +15,12 @@ interface Listing {
   campus: string;
   images: string[];
   status: string;
-  createdAt: string;
+  seller_id: string;
+  created_at: string;
 }
 
 export default function MyListings() {
-  const { session } = useAuth();
+  const { user } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [listings, setListings] = useState<Listing[]>([]);
@@ -31,13 +32,14 @@ export default function MyListings() {
 
   const fetchMyListings = async () => {
     try {
-      const response = await fetch(`${serverUrl}/my-listings`, {
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-      });
-      const data = await response.json();
-      setListings(data.listings || []);
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('seller_id', user!.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setListings(data || []);
     } catch (error) {
       console.error('Error fetching listings:', error);
     } finally {
@@ -49,16 +51,12 @@ export default function MyListings() {
     if (!confirm('Are you sure you want to delete this listing?')) return;
 
     try {
-      const response = await fetch(`${serverUrl}/listings/${listingId.replace('listing:', '')}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-      });
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', listingId);
 
-      if (response.ok) {
-        fetchMyListings();
-      }
+      if (!error) fetchMyListings();
     } catch (error) {
       console.error('Error deleting listing:', error);
     }
@@ -137,8 +135,10 @@ export default function MyListings() {
                     </span>
                     <span
                       className={`text-xs px-2 py-1 rounded-full font-medium ${
-                        listing.status === 'active'
+                        listing.status === 'available'
                           ? 'bg-primary/10 text-primary'
+                          : listing.status === 'sold'
+                          ? 'bg-muted text-muted-foreground line-through'
                           : 'bg-muted text-muted-foreground'
                       }`}
                     >
@@ -147,7 +147,7 @@ export default function MyListings() {
                   </div>
                   <div className="flex gap-2">
                     <Link
-                      to={`/listings/${listing.id.replace('listing:', '')}`}
+                      to={`/listings/${listing.id}`}
                       className="flex-1 py-2 text-center rounded-lg border-2 border-border hover:bg-accent transition-all duration-300 text-sm font-medium"
                     >
                       {t('myListings.view')}

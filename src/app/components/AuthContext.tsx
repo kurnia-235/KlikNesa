@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase, serverUrl } from '../../../utils/supabase/client';
-import { publicAnonKey } from '../../../utils/supabase/info';
+import { supabase } from '../../../utils/supabase/client';
 
 interface User {
   id: string;
@@ -30,36 +29,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (accessToken: string) => {
+  // Ambil profil dari tabel `profiles`.
+  // fallbackUser = objek dari sesi Auth — dipakai jika tabel profiles kosong/error,
+  // sehingga tidak perlu network call tambahan ke getUser().
+  const fetchProfile = async (userId: string, fallbackUser?: any) => {
     try {
-      const response = await fetch(`${serverUrl}/profile`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.profile);
+      if (error) {
+        console.error('[Auth] Gagal membaca tabel profiles:', error.message, '| code:', error.code);
       }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
+
+      if (data) {
+        setUser({
+          id: data.id,
+          email: data.email,
+          name: data.name,
+          campus: data.campus,
+          verified: data.verified,
+          rating: Number(data.rating),
+          transactionCount: data.transaction_count,
+          trustBadge: data.trust_badge,
+        });
+        return;
+      }
+
+      // Fallback darurat: gunakan metadata sesi yang sudah ada di memori — tanpa network call.
+      console.warn('[Auth] Fallback ke user_metadata karena profil tidak ditemukan');
+      const meta = fallbackUser?.user_metadata ?? {};
+      setUser({
+        id: userId,
+        email: fallbackUser?.email ?? '',
+        name: meta.name ?? '',
+        campus: meta.campus ?? '',
+        verified: false,
+        rating: 0,
+        transactionCount: 0,
+        trustBadge: false,
+      });
+    } catch (err) {
+      console.error('[Auth] fetchProfile exception:', err);
+      // Fallback minimal agar app tidak menggantung
+      if (fallbackUser) {
+        const meta = fallbackUser?.user_metadata ?? {};
+        setUser({
+          id: userId,
+          email: fallbackUser?.email ?? '',
+          name: meta.name ?? '',
+          campus: meta.campus ?? '',
+          verified: false,
+          rating: 0,
+          transactionCount: 0,
+          trustBadge: false,
+        });
+      }
     }
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.access_token) {
-        fetchProfile(session.access_token);
-      }
-      setLoading(false);
-    });
-
+    // onAuthStateChange adalah sumber kebenaran utama.
+    // INITIAL_SESSION menggantikan kebutuhan getSession() — callback ini selalu dipanggil
+    // segera saat ada sesi di localStorage, sehingga loading dapat diselesaikan lebih cepat.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Tandai auth sudah diketahui SEBELUM fetchProfile — ini yang menghilangkan infinite loading.
+      // Profile akan di-load di background tanpa memblokir render halaman.
       setSession(session);
-      if (session?.access_token) {
-        fetchProfile(session.access_token);
+      setLoading(false);
+
+      if (session?.user?.id) {
+        // Jalankan tanpa await agar tidak memblokir. fetchProfile sudah punya try/catch internal.
+        fetchProfile(session.user.id, session.user);
       } else {
         setUser(null);
       }
@@ -69,28 +112,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signUp = async (email: string, password: string, name: string, campus: string) => {
-    const response = await fetch(`${serverUrl}/signup`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password, name, campus })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Signup failed');
+    // Validasi domain email UNESA
+    if (!email.endsWith('@mhs.unesa.ac.id') && !email.endsWith('@unesa.ac.id')) {
+      throw new Error('Email harus menggunakan domain UNESA (@mhs.unesa.ac.id atau @unesa.ac.id)');
     }
 
-    // Auto sign in after signup
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+    // Daftar via Supabase Auth — name & campus disimpan di user_metadata
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: { name, campus },
+      },
     });
 
-    if (signInError) {
-      throw signInError;
+    if (error) throw error;
+
+    // Cadangan: upsert profil jika trigger belum terpasang.
+    // ignoreDuplicates mencegah error jika trigger sudah membuatnya lebih dulu.
+    if (data.user) {
+      await supabase.from('profiles').upsert(
+        {
+          id: data.user.id,
+          email,
+          name,
+          campus,
+          verified: false,
+          rating: 0,
+          transaction_count: 0,
+          trust_badge: false,
+        },
+        { onConflict: 'id', ignoreDuplicates: true },
+      );
     }
   };
 
@@ -100,12 +153,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       password,
     });
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
-    if (data.session?.access_token) {
-      await fetchProfile(data.session.access_token);
+    if (data.user) {
+      await fetchProfile(data.user.id, data.user);
     }
   };
 
@@ -116,8 +167,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const refreshProfile = async () => {
-    if (session?.access_token) {
-      await fetchProfile(session.access_token);
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) {
+      await fetchProfile(authUser.id, authUser);
     }
   };
 

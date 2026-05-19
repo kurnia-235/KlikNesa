@@ -80,10 +80,6 @@ export default function SellerVerification() {
     setOtpError('');
     setOtpInput('');
 
-    // invoke('server', ...) → request ke root '/' function, bukan subpath.
-    // Gateway Supabase hanya mengenal nama function 'server', subpath di nama
-    // function menyebabkan gateway gagal merutekan sehingga CORS error.
-    // Route OTP dikodekan di dalam body { route: '...' }.
     const { data, error } = await supabase.functions.invoke('server', {
       body: { route: 'send-otp', phone: waNumber },
     });
@@ -96,13 +92,9 @@ export default function SellerVerification() {
       try {
         const ctx = (error as any)?.context;
         if (ctx && typeof (ctx as any).json === 'function') {
-          // SDK lama: context adalah Response object — perlu di-await
           const body = await (ctx as any).clone().json().catch(() => null);
-          console.error('[send-otp] context (Response→json):', body);
           msg = body?.error ?? body?.message ?? error.message ?? msg;
         } else if (ctx && typeof ctx === 'object') {
-          // SDK baru: context sudah berupa parsed JSON object
-          console.error('[send-otp] context (object):', ctx);
           msg = ctx?.error ?? ctx?.message ?? error.message ?? msg;
         } else if (typeof ctx === 'string' && ctx) {
           msg = ctx;

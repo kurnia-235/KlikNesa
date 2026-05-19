@@ -131,7 +131,29 @@ CREATE TRIGGER profiles_set_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- ---------------------------------------------------------------
--- 6. Catatan pengaturan Auth di Supabase Dashboard
+-- 6. Tabel KV Store — dipakai Edge Function untuk simpan OTP sementara
+--    Dibuat otomatis oleh Figma Make; jalankan ini jika belum ada.
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.kv_store_2fc7af5c (
+  key   TEXT NOT NULL PRIMARY KEY,
+  value JSONB NOT NULL
+);
+
+-- Edge Function mengakses tabel ini via service role key (RLS tidak perlu)
+-- tapi kita aktifkan RLS dengan policy service-role-only agar aman.
+ALTER TABLE public.kv_store_2fc7af5c ENABLE ROW LEVEL SECURITY;
+
+-- ---------------------------------------------------------------
+-- 7. Tambahan kolom profiles untuk fitur Seller Verification
+--    Jalankan IF NOT EXISTS agar aman diulang.
+-- ---------------------------------------------------------------
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS seller_status    TEXT    DEFAULT 'unverified';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS whatsapp_number  TEXT    DEFAULT '';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS whatsapp_verified BOOLEAN DEFAULT false;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ktm_url          TEXT    DEFAULT '';
+
+-- ---------------------------------------------------------------
+-- 8. Catatan pengaturan Auth di Supabase Dashboard
 -- ---------------------------------------------------------------
 -- Untuk menonaktifkan verifikasi email (saat development):
 -- Dashboard > Authentication > Providers > Email

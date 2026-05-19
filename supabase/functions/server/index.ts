@@ -594,9 +594,7 @@ function normalizePhone(raw: string): string {
 }
 
 async function sendOtpLogic(userId: string, phone: string): Promise<{ ok: boolean; error?: string }> {
-  // Sanitasi defensif: pastikan phone adalah string sebelum diproses
   const cleaned = String(phone ?? '').replace(/\D/g, '');
-
   console.log(`[send-otp] Input phone: "${phone}" → cleaned: "${cleaned}"`);
 
   if (cleaned.length < 9 || cleaned.length > 13) {
@@ -608,60 +606,62 @@ async function sendOtpLogic(userId: string, phone: string): Promise<{ ok: boolea
 
   const otp = Math.floor(1000 + Math.random() * 9000);
 
-  // Simpan OTP ke KV store sebelum menembak Wablas
   await kv.set(`otp:${userId}`, {
     code: otp,
     phone: waPhone,
     expiresAt: Date.now() + OTP_TTL_MS,
   });
 
-  const wablasDomain = Deno.env.get('WABLAS_DOMAIN') ?? 'console.wablas.com';
-  const wablasToken  = Deno.env.get('WABLAS_TOKEN') ?? '';
+  // ── Fonnte API ──────────────────────────────────────────────────────────────
+  // Endpoint : POST https://api.fonnte.com/send
+  // Auth     : Authorization: <FONNTE_TOKEN>  (dari Supabase Secrets)
+  // Body     : { target: "62xxx", message: "..." }
+  // Fonnte tidak memblokir IP Supabase Edge Function.
+  const fonnteToken = Deno.env.get('FONNTE_TOKEN') ?? '';
 
-  if (!wablasToken) {
-    console.error('[send-otp] WABLAS_TOKEN env var belum diset di Supabase secrets!');
-    return { ok: false, error: 'Konfigurasi Wablas belum diset di server. Hubungi admin.' };
+  if (!fonnteToken) {
+    console.error('[send-otp] FONNTE_TOKEN env var belum diset di Supabase secrets!');
+    return { ok: false, error: 'Konfigurasi Fonnte belum diset di server. Tambahkan FONNTE_TOKEN ke Secrets.' };
   }
 
-  // Wablas memakai format: token ada di URL path → https://{domain}/{token}/api/send-message
-  // Authorization header juga dikirim sebagai fallback untuk kompatibilitas lintas versi.
-  const wablasUrl = `https://${wablasDomain}/${wablasToken}/api/send-message`;
-  const message   =
-    `[KlikNesa] Kode OTP Verifikasi Penjual Anda adalah: ${otp}. ` +
-    `Jangan bagikan kode ini kepada siapa pun yaa.`;
+  const message = `[KlikNesa] Kode OTP Verifikasi Penjual Anda adalah: ${otp}. Jangan bagikan kode ini kepada siapa pun yaa.`;
 
-  console.log(`[send-otp] Menembak Wablas → URL: https://${wablasDomain}/***token***/api/send-message | To: ${waPhone}`);
+  console.log(`[send-otp] Menembak Fonnte → api.fonnte.com/send | To: ${waPhone}`);
 
-  // Try-catch eksplisit agar crash jaringan tidak menghancurkan seluruh request
+  const formData = new URLSearchParams();
+  formData.append('target',  waPhone);
+  formData.append('message', message);
+
   try {
-    const res = await fetch(wablasUrl, {
+    const fonnteResponse = await fetch('https://api.fonnte.com/send', {
       method: 'POST',
       headers: {
-        'Authorization': wablasToken,
-        'Content-Type': 'application/json',
+        'Authorization': fonnteToken,
+        'Content-Type' : 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify({ phone: waPhone, message }),
+      body: formData.toString(),
     });
 
-    // Baca body response Wablas untuk log & pesan error yang informatif
-    const resText = await res.text();
-    console.log(`[send-otp] Wablas response HTTP ${res.status}:`, resText);
+    const fonnteResult = await fonnteResponse.text();
+    console.log(`[send-otp] Fonnte HTTP ${fonnteResponse.status} | Body:`, fonnteResult);
 
-    if (!res.ok) {
-      // Kembalikan detail HTTP status + body Wablas agar mudah didiagnosis
-      return {
-        ok: false,
-        error: `Wablas error ${res.status}: ${resText || '(no body)'}`,
-      };
+    // Fonnte selalu HTTP 200 — sukses/gagal ditentukan oleh field `status` di body JSON.
+    let parsed: any = {};
+    try { parsed = JSON.parse(fonnteResult); } catch { /* body bukan JSON */ }
+
+    console.log(`[send-otp] Fonnte parsed.status=${parsed?.status} | reason=${parsed?.reason}`);
+
+    if (!parsed?.status) {
+      const reason = parsed?.reason ?? parsed?.message ?? fonnteResult ?? 'Tidak ada keterangan';
+      return { ok: false, error: `Fonnte gagal mengirim pesan: ${reason}` };
     }
 
     return { ok: true };
   } catch (err) {
-    // Jaringan gagal total (DNS, timeout, koneksi ditolak, dsb)
-    console.error('[send-otp] Wablas fetch EXCEPTION:', err);
+    console.error('[send-otp] Fonnte fetch EXCEPTION:', err);
     return {
       ok: false,
-      error: `Gagal menghubungi server Wablas: ${(err as Error)?.message ?? String(err)}`,
+      error: `Gagal menghubungi Fonnte: ${(err as Error)?.message ?? String(err)}`,
     };
   }
 }
@@ -681,14 +681,40 @@ async function verifyOtpLogic(userId: string, code: string): Promise<{ ok: boole
 }
 
 // ── Root dispatcher ────────────────────────────────────────────────────────────
-// supabase.functions.invoke('server', { body: { route: '...', ... } }) mengirim
-// request ke path '/' (bukan subpath). Dispatcher ini menangani routing OTP
-// berdasarkan field `route` di dalam body request.
-app.post("/", requireAuth, async (c) => {
+// Supabase SDK mengirim ke URL https://{ref}.supabase.co/functions/v1/server
+// sehingga Hono menerima path "/functions/v1/server", BUKAN "/".
+// Gunakan "*" agar dispatcher ini menangkap semua path POST yang tidak
+// tertangkap oleh route spesifik di atas (path-specific routes match dulu).
+app.post("*", requireAuth, async (c) => {
   try {
     const body   = await c.req.json();
     const route  = body.route;
     const userId = c.get('userId');
+
+    if (route === 'debug-status') {
+      const domain = Deno.env.get('WABLAS_DOMAIN') ?? null;
+      const token  = Deno.env.get('WABLAS_TOKEN')  ?? null;
+      let kvStatus = 'unknown';
+      try {
+        await kv.set('debug:ping', { ts: Date.now() });
+        const val = await kv.get('debug:ping');
+        await kv.del('debug:ping');
+        kvStatus = val ? 'ok' : 'error: ping returned null';
+      } catch (e: any) {
+        kvStatus = `error: ${(e as Error).message}`;
+      }
+      return c.json({
+        kvStore: kvStatus,
+        WABLAS_DOMAIN: domain ? `SET → "${domain}"` : 'NOT SET',
+        WABLAS_TOKEN : token
+          ? `SET → len=${token.length}, starts="${token.slice(0, 10)}..."`
+          : 'NOT SET',
+        wablasUrl: token && domain
+          ? `https://${domain}/${token.slice(0, 8)}***token***/api/send-message`
+          : 'cannot build (missing env)',
+        ts: new Date().toISOString(),
+      });
+    }
 
     if (route === 'send-otp') {
       const result = await sendOtpLogic(userId, body.phone ?? '');

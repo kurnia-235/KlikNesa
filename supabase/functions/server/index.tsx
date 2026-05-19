@@ -588,37 +588,55 @@ function normalizePhone(raw: string): string {
 async function sendOtpLogic(userId: string, phone: string): Promise<{ ok: boolean; error?: string }> {
   const cleaned = String(phone ?? '').replace(/\D/g, '');
   console.log(`[send-otp] Input phone: "${phone}" → cleaned: "${cleaned}"`);
+
   if (cleaned.length < 9 || cleaned.length > 13) {
     return { ok: false, error: `Nomor WhatsApp tidak valid (${cleaned.length} digit, butuh 9–13).` };
   }
+
   const waPhone = normalizePhone(cleaned);
   console.log(`[send-otp] waPhone setelah normalisasi: "${waPhone}"`);
-  const otp = Math.floor(1000 + Math.random() * 9000);
-  await kv.set(`otp:${userId}`, { code: otp, phone: waPhone, expiresAt: Date.now() + OTP_TTL_MS });
-  const wablasDomain = Deno.env.get('WABLAS_DOMAIN') ?? 'console.wablas.com';
-  const wablasToken  = Deno.env.get('WABLAS_TOKEN') ?? '';
 
-  if (!wablasToken) {
-    console.error('[send-otp] WABLAS_TOKEN env var belum diset di Supabase secrets!');
-    return { ok: false, error: 'Konfigurasi Wablas belum diset di server. Hubungi admin.' };
+  const otp = Math.floor(1000 + Math.random() * 9000);
+
+  await kv.set(`otp:${userId}`, { code: otp, phone: waPhone, expiresAt: Date.now() + OTP_TTL_MS });
+
+  const fonnteToken = Deno.env.get('FONNTE_TOKEN') ?? '';
+
+  if (!fonnteToken) {
+    console.error('[send-otp] FONNTE_TOKEN env var belum diset di Supabase secrets!');
+    return { ok: false, error: 'Konfigurasi Fonnte belum diset di server. Tambahkan FONNTE_TOKEN ke Secrets.' };
   }
 
-  const wablasUrl = `https://${wablasDomain}/${wablasToken}/api/send-message`;
-  const message   = `[KlikNesa] Kode OTP Verifikasi Penjual Anda adalah: ${otp}. Jangan bagikan kode ini kepada siapa pun yaa.`;
-  console.log(`[send-otp] Menembak Wablas → https://${wablasDomain}/***token***/api/send-message | To: ${waPhone}`);
+  const message = `[KlikNesa] Kode OTP Verifikasi Penjual Anda adalah: ${otp}. Jangan bagikan kode ini kepada siapa pun yaa.`;
+  console.log(`[send-otp] Menembak Fonnte → api.fonnte.com/send | To: ${waPhone}`);
+
+  const formData = new URLSearchParams();
+  formData.append('target',  waPhone);
+  formData.append('message', message);
+
   try {
-    const res = await fetch(wablasUrl, {
+    const fonnteResponse = await fetch('https://api.fonnte.com/send', {
       method: 'POST',
-      headers: { 'Authorization': wablasToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: waPhone, message }),
+      headers: { 'Authorization': fonnteToken, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString(),
     });
-    const resText = await res.text();
-    console.log(`[send-otp] Wablas HTTP ${res.status}:`, resText);
-    if (!res.ok) return { ok: false, error: `Wablas error ${res.status}: ${resText || '(no body)'}` };
+    const fonnteResult = await fonnteResponse.text();
+    console.log(`[send-otp] Fonnte HTTP ${fonnteResponse.status} | Body:`, fonnteResult);
+
+    let parsed: any = {};
+    try { parsed = JSON.parse(fonnteResult); } catch { /* body bukan JSON */ }
+
+    console.log(`[send-otp] Fonnte parsed.status=${parsed?.status} | reason=${parsed?.reason}`);
+
+    if (!parsed?.status) {
+      const reason = parsed?.reason ?? parsed?.message ?? fonnteResult ?? 'Tidak ada keterangan';
+      return { ok: false, error: `Fonnte gagal mengirim pesan: ${reason}` };
+    }
+
     return { ok: true };
   } catch (err) {
-    console.error('[send-otp] Wablas fetch EXCEPTION:', err);
-    return { ok: false, error: `Gagal menghubungi server Wablas: ${(err as Error)?.message ?? String(err)}` };
+    console.error('[send-otp] Fonnte fetch EXCEPTION:', err);
+    return { ok: false, error: `Gagal menghubungi Fonnte: ${(err as Error)?.message ?? String(err)}` };
   }
 }
 
@@ -634,11 +652,36 @@ async function verifyOtpLogic(userId: string, code: string): Promise<{ ok: boole
   return { ok: true, phone: record.phone };
 }
 
-app.post("/", requireAuth, async (c) => {
+app.post("*", requireAuth, async (c) => {
   try {
     const body   = await c.req.json();
     const route  = body.route;
     const userId = c.get('userId');
+    if (route === 'debug-status') {
+      const domain = Deno.env.get('WABLAS_DOMAIN') ?? null;
+      const token  = Deno.env.get('WABLAS_TOKEN')  ?? null;
+      let kvStatus = 'unknown';
+      try {
+        await kv.set('debug:ping', { ts: Date.now() });
+        const val = await kv.get('debug:ping');
+        await kv.del('debug:ping');
+        kvStatus = val ? 'ok' : 'error: ping returned null';
+      } catch (e: any) {
+        kvStatus = `error: ${(e as Error).message}`;
+      }
+      return c.json({
+        kvStore: kvStatus,
+        WABLAS_DOMAIN: domain ? `SET → "${domain}"` : 'NOT SET',
+        WABLAS_TOKEN : token
+          ? `SET → len=${token.length}, starts="${token.slice(0, 10)}..."`
+          : 'NOT SET',
+        wablasUrl: token && domain
+          ? `https://${domain}/${token.slice(0, 8)}***token***/api/send-message`
+          : 'cannot build (missing env)',
+        ts: new Date().toISOString(),
+      });
+    }
+
     if (route === 'send-otp') {
       const result = await sendOtpLogic(userId, body.phone ?? '');
       return result.ok ? c.json({ ok: true }) : c.json({ error: result.error }, 400);

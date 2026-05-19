@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { useAuth } from './AuthContext';
 import { useLanguage } from './LanguageContext';
 import { supabase } from '../../../utils/supabase/client';
-import { ArrowLeft, Upload, X, Phone } from 'lucide-react';
+import { ArrowLeft, Upload, X } from 'lucide-react';
 import Layout from './Layout';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
@@ -20,7 +20,6 @@ export default function CreateListing() {
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('Electronics');
   const [campus, setCampus] = useState(user?.campus || 'Ketintang');
-  const [whatsappNumber, setWhatsappNumber] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -94,7 +93,7 @@ export default function CreateListing() {
           seller_id: user!.id,
           status: 'available',
           images,
-          whatsapp_number: whatsappNumber,
+          whatsapp_number: user?.whatsappNumber ?? '',
         });
 
       if (insertError) throw insertError;
@@ -255,22 +254,6 @@ export default function CreateListing() {
                   <option value="Lidah Wetan">Lidah Wetan</option>
                   <option value="Magetan">Magetan</option>
                 </select>
-              </div>
-
-              {/* WhatsApp Number */}
-              <div>
-                <label htmlFor="whatsapp" className="block text-foreground mb-2 font-medium text-sm sm:text-base flex items-center gap-2">
-                  <Phone className="size-4 text-green-500" />
-                  {t('createListing.whatsapp')}
-                </label>
-                <input
-                  id="whatsapp"
-                  type="tel"
-                  value={whatsappNumber}
-                  onChange={(e) => setWhatsappNumber(e.target.value)}
-                  className="w-full px-4 py-2.5 sm:py-3 rounded-lg bg-input-background border-2 border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all duration-300"
-                  placeholder={t('createListing.whatsappPlaceholder')}
-                />
               </div>
 
               {/* Actions */}

@@ -13,6 +13,7 @@ import {
   PackageCheck,
   Wallet,
   MessageCircle,
+  Heart,
 } from 'lucide-react';
 import Layout from './Layout';
 
@@ -29,6 +30,12 @@ interface Listing {
   seller_id: string;
   whatsapp_number: string;
   created_at: string;
+}
+
+interface SellerProfile {
+  id: string;
+  name: string;
+  avatar_url: string | null;
 }
 
 function openWhatsApp(whatsappNumber: string, productTitle: string) {
@@ -153,6 +160,9 @@ function BuyerCatalog() {
   const [selectedCampus, setSelectedCampus] = useState(user?.campus || 'All');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
+  const [wishlistMap, setWishlistMap] = useState<Record<string, string>>({});
+  const [sellerProfiles, setSellerProfiles] = useState<Record<string, SellerProfile>>({});
 
   const CATEGORIES = language === 'en'
     ? ['All', 'Electronics', 'Books', 'Furniture', 'Clothing', 'Sports', 'Other']
@@ -184,7 +194,21 @@ function BuyerCatalog() {
 
       const { data, error } = await query;
       if (error) throw error;
-      setListings(data || []);
+      const items = data || [];
+      setListings(items);
+
+      if (items.length > 0) {
+        const sellerIds = [...new Set(items.map((l: Listing) => l.seller_id))];
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, name, avatar_url')
+          .in('id', sellerIds);
+        if (profiles) {
+          const map: Record<string, SellerProfile> = {};
+          profiles.forEach((p: any) => { map[p.id] = { id: p.id, name: p.name, avatar_url: p.avatar_url ?? null }; });
+          setSellerProfiles(map);
+        }
+      }
     } catch {
       setListings([]);
     } finally {
@@ -192,9 +216,46 @@ function BuyerCatalog() {
     }
   };
 
+  useEffect(() => { fetchListings(); }, [selectedCampus, selectedCategory, searchQuery]);
+
+  // Load user's saved wishlist IDs on mount
   useEffect(() => {
-    fetchListings();
-  }, [selectedCampus, selectedCategory, searchQuery]);
+    if (!user) return;
+    supabase
+      .from('wishlists')
+      .select('id, product_id')
+      .eq('user_id', user.id)
+      .then(({ data, error }) => {
+        if (error || !data?.length) return;
+        const ids = new Set(data.map((r: any) => r.product_id as string));
+        const map: Record<string, string> = {};
+        data.forEach((r: any) => { map[r.product_id] = r.id; });
+        setWishlistIds(ids);
+        setWishlistMap(map);
+      })
+      .catch(() => {});
+  }, [user?.id]);
+
+  const toggleWishlist = async (e: React.MouseEvent, productId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) return;
+    if (wishlistIds.has(productId)) {
+      await supabase.from('wishlists').delete().eq('id', wishlistMap[productId]);
+      setWishlistIds((prev) => { const s = new Set(prev); s.delete(productId); return s; });
+      setWishlistMap((prev) => { const m = { ...prev }; delete m[productId]; return m; });
+    } else {
+      const { data } = await supabase
+        .from('wishlists')
+        .insert({ user_id: user.id, product_id: productId })
+        .select('id')
+        .single();
+      if (data) {
+        setWishlistIds((prev) => new Set([...prev, productId]));
+        setWishlistMap((prev) => ({ ...prev, [productId]: data.id }));
+      }
+    }
+  };
 
   return (
     <Layout>
@@ -290,7 +351,7 @@ function BuyerCatalog() {
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <Link to={`/listings/${listing.id}`} className="block">
-                    <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
+                    <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden relative">
                       {listing.images?.length > 0 ? (
                         <img
                           src={listing.images[0]}
@@ -300,14 +361,47 @@ function BuyerCatalog() {
                       ) : (
                         <ShoppingBag className="size-12 text-muted-foreground group-hover:scale-110 transition-transform duration-300" />
                       )}
+                      <button
+                        onClick={(e) => toggleWishlist(e, listing.id)}
+                        className="absolute top-2 right-2 size-8 bg-card/80 backdrop-blur-sm rounded-full flex items-center justify-center hover:scale-110 shadow-sm transition-all z-10"
+                        title={wishlistIds.has(listing.id)
+                          ? (language === 'en' ? 'Remove from wishlist' : 'Hapus dari wishlist')
+                          : (language === 'en' ? 'Save to wishlist' : 'Simpan ke wishlist')}
+                      >
+                        <Heart className={`size-4 transition-colors ${
+                          wishlistIds.has(listing.id)
+                            ? 'fill-red-500 text-red-500'
+                            : 'text-muted-foreground'
+                        }`} />
+                      </button>
                     </div>
                     <div className="p-4">
                       <h3 className="font-semibold text-sm text-foreground mb-1 group-hover:text-primary transition-colors truncate">
                         {listing.title}
                       </h3>
-                      <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
+                      <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
                         {listing.description}
                       </p>
+                      {sellerProfiles[listing.seller_id] && (
+                        <div className="flex items-center gap-1.5 mb-2">
+                          {sellerProfiles[listing.seller_id].avatar_url ? (
+                            <img
+                              src={sellerProfiles[listing.seller_id].avatar_url!}
+                              alt=""
+                              className="size-5 rounded-full object-cover shrink-0"
+                            />
+                          ) : (
+                            <div className="size-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                              <span className="text-[9px] font-bold text-primary">
+                                {sellerProfiles[listing.seller_id].name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                          <span className="text-xs text-muted-foreground truncate">
+                            {sellerProfiles[listing.seller_id].name}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-bold text-primary">
                           Rp {listing.price.toLocaleString()}

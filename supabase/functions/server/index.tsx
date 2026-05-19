@@ -562,4 +562,98 @@ app.get("/make-server-2fc7af5c/admin/users", requireAuth, async (c) => {
   }
 });
 
+// ============== WHATSAPP OTP ENDPOINTS ==============
+
+const OTP_TTL_MS = 5 * 60 * 1000; // 5 menit
+
+/** Normalisasi nomor WA ke format 62xxxxxxxxxx untuk Wablas */
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('62')) return digits;
+  if (digits.startsWith('0')) return '62' + digits.slice(1);
+  return '62' + digits;
+}
+
+// POST /make-server-2fc7af5c/send-otp
+// Body: { phone: string }
+// Generates 4-digit OTP, sends via Wablas, stores in KV with TTL.
+app.post("/make-server-2fc7af5c/send-otp", requireAuth, async (c) => {
+  try {
+    const { phone } = await c.req.json();
+    const userId = c.get('userId');
+
+    const cleaned = phone?.replace(/\D/g, '') ?? '';
+    if (cleaned.length < 9 || cleaned.length > 13) {
+      return c.json({ error: 'Nomor WhatsApp tidak valid (9–13 digit).' }, 400);
+    }
+
+    const waPhone = normalizePhone(cleaned);
+    const otp = Math.floor(1000 + Math.random() * 9000);
+
+    // Simpan OTP di KV dengan timestamp expiry
+    await kv.set(`otp:${userId}`, {
+      code: otp,
+      phone: waPhone,
+      expiresAt: Date.now() + OTP_TTL_MS,
+    });
+
+    // Kirim via Wablas
+    const wablasDomain = Deno.env.get('WABLAS_DOMAIN') ?? 'console.wablas.com';
+    const wablasToken = Deno.env.get('WABLAS_TOKEN') ?? '';
+    const wablasUrl = `https://${wablasDomain}/${wablasToken}/api/send-message`;
+    const message =
+      `[KlikNesa] Kode OTP Verifikasi Penjual Anda adalah: ${otp}. ` +
+      `Jangan bagikan kode ini kepada siapa pun yaa.`;
+
+    const res = await fetch(wablasUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': wablasToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ phone: waPhone, message }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error('[send-otp] Wablas error:', res.status, text);
+      return c.json({ error: 'Gagal mengirim OTP via WhatsApp. Coba lagi.' }, 502);
+    }
+
+    return c.json({ ok: true });
+  } catch (err) {
+    console.error('[send-otp] exception:', err);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
+// POST /make-server-2fc7af5c/verify-otp
+// Body: { code: string }
+// Returns { ok: true, phone: string } on success, error otherwise.
+app.post("/make-server-2fc7af5c/verify-otp", requireAuth, async (c) => {
+  try {
+    const { code } = await c.req.json();
+    const userId = c.get('userId');
+
+    const record = await kv.get(`otp:${userId}`);
+    if (!record) {
+      return c.json({ error: 'OTP tidak ditemukan. Silakan kirim ulang.' }, 400);
+    }
+    if (Date.now() > record.expiresAt) {
+      await kv.del(`otp:${userId}`);
+      return c.json({ error: 'OTP sudah kedaluwarsa (5 menit). Silakan kirim ulang.' }, 400);
+    }
+    if (String(record.code) !== String(code).trim()) {
+      return c.json({ error: 'Kode OTP salah. Silakan coba lagi.' }, 400);
+    }
+
+    // OTP valid — hapus agar tidak bisa dipakai ulang
+    await kv.del(`otp:${userId}`);
+    return c.json({ ok: true, phone: record.phone });
+  } catch (err) {
+    console.error('[verify-otp] exception:', err);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

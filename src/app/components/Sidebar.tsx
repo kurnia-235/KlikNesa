@@ -1,4 +1,4 @@
-import { FormEvent, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from './AuthContext';
 import { useLanguage } from './LanguageContext';
@@ -8,13 +8,12 @@ import { supabase } from '../../../utils/supabase/client';
 import {
   Home,
   ShoppingBag,
-  ShoppingCart,
+  Heart,
   ClipboardList,
   Plus,
   Package,
   User,
   MessageCircle,
-  LogOut,
   Sun,
   Moon,
   Shield,
@@ -22,18 +21,13 @@ import {
   Menu,
   Phone,
   Store,
-  KeyRound,
-  MapPin,
-  Check,
-  Loader2,
+  Clock,
 } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
-
-const CAMPUSES = ['Ketintang', 'Lidah Wetan', 'Magetan'] as const;
 
 // ── Shared class helpers ──────────────────────────────────────────────────────
 
@@ -44,7 +38,7 @@ const fadeOnExpand =
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const { user, signOut, refreshProfile } = useAuth();
+  const { user } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const { mode, setMode } = useUserMode();
@@ -65,70 +59,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       });
   }, [user?.id, mode]);
 
-  // ── Account settings modal ────────────────────────────────────────────────
-  const [modalOpen, setModalOpen] = useState(false);
-  const [newPass, setNewPass] = useState('');
-  const [confirmPass, setConfirmPass] = useState('');
-  const [passError, setPassError] = useState('');
-  const [passSaving, setPassSaving] = useState(false);
-  const [passDone, setPassDone] = useState(false);
-  const [campus, setCampus] = useState(user?.campus ?? 'Ketintang');
-  const [campusSaving, setCampusSaving] = useState(false);
-  const [campusDone, setCampusDone] = useState(false);
-
-  useEffect(() => {
-    if (user?.campus) setCampus(user.campus);
-  }, [user?.campus]);
-
-  const openModal = () => {
-    setPassError(''); setPassDone(false); setNewPass(''); setConfirmPass('');
-    setCampusDone(false);
-    setModalOpen(true);
-  };
-
-  const handleChangePassword = async (e: FormEvent) => {
-    e.preventDefault();
-    setPassError('');
-    if (newPass.length < 6) {
-      setPassError(language === 'en' ? 'Min. 6 characters' : 'Minimal 6 karakter');
-      return;
-    }
-    if (newPass !== confirmPass) {
-      setPassError(language === 'en' ? 'Passwords do not match' : 'Password tidak cocok');
-      return;
-    }
-    setPassSaving(true);
-    const { error } = await supabase.auth.updateUser({ password: newPass });
-    setPassSaving(false);
-    if (error) {
-      setPassError(error.message);
-    } else {
-      setPassDone(true);
-      setNewPass(''); setConfirmPass('');
-    }
-  };
-
-  const handleChangeCampus = async () => {
-    if (!user || campus === user.campus) return;
-    setCampusSaving(true);
-    const { error } = await supabase.from('profiles').update({ campus }).eq('id', user.id);
-    setCampusSaving(false);
-    if (!error) { await refreshProfile(); setCampusDone(true); }
-  };
-
-  const handleSignOut = async () => {
-    await signOut();
-    onClose();
-    navigate('/', { replace: true });
-  };
-
   const isActive = (path: string) => location.pathname === path;
 
   const buyerItems = user
     ? [
         { icon: Home,          label: language === 'en' ? 'Browse'           : 'Beranda',         path: '/home' },
         { icon: MessageCircle, label: language === 'en' ? 'Messages'         : 'Pesan',           path: '/conversations' },
-        { icon: ShoppingCart,  label: language === 'en' ? 'Cart'             : 'Keranjang',        path: '/cart' },
+        { icon: Heart,         label: language === 'en' ? 'Wishlist'          : 'Disimpan',         path: '/wishlist' },
         { icon: ClipboardList, label: language === 'en' ? 'Purchase History' : 'Riwayat Belanja',  path: '/orders' },
       ]
     : [
@@ -207,13 +144,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               <>
                 {/* Card profil */}
                 <button
-                  onClick={openModal}
+                  onClick={() => { onClose(); navigate('/profile-settings'); }}
                   className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-accent/60 transition-all text-left"
-                  title={language === 'en' ? 'Account Settings' : 'Pengaturan Akun'}
+                  title={language === 'en' ? 'Profile Settings' : 'Pengaturan Profil'}
                 >
-                  <div className="size-8 bg-gradient-to-br from-primary to-primary/70 rounded-full flex items-center justify-center shrink-0">
-                    <User className="size-4 text-primary-foreground" />
-                  </div>
+                  {user.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.name}
+                      className="size-8 rounded-full object-cover shrink-0 ring-2 ring-primary/20"
+                    />
+                  ) : (
+                    <div className="size-8 bg-gradient-to-br from-primary to-primary/70 rounded-full flex items-center justify-center shrink-0">
+                      <span className="text-xs font-bold text-primary-foreground">
+                        {user.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                   <div className={`flex-1 min-w-0 ${fadeOnExpand}`}>
                     <p className="text-sm font-semibold text-foreground truncate whitespace-nowrap leading-tight">
                       {user.name}
@@ -225,29 +172,53 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   <span className={`text-xs text-muted-foreground shrink-0 ${fadeOnExpand}`}>⚙</span>
                 </button>
 
-                {/* Mode switch — disembunyikan di desktop collapsed, tampil saat hover */}
-                <div className={`
-                  mt-2 rounded-lg overflow-hidden border border-border
-                  flex lg:hidden lg:group-hover/sidebar:flex
-                `}>
-                  <button
-                    onClick={() => { setMode('buyer'); navigate('/home'); }}
-                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-medium transition-colors ${
-                      mode === 'buyer' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
-                    }`}
-                  >
-                    <ShoppingCart className="size-3 shrink-0" />
-                    <span className="whitespace-nowrap">{language === 'en' ? 'Buyer' : 'Pembeli'}</span>
-                  </button>
-                  <button
-                    onClick={() => { setMode('seller'); navigate('/home'); }}
-                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-medium transition-colors ${
-                      mode === 'seller' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
-                    }`}
-                  >
-                    <Store className="size-3 shrink-0" />
-                    <span className="whitespace-nowrap">{language === 'en' ? 'Seller' : 'Penjual'}</span>
-                  </button>
+                {/* Role switcher — hidden desktop collapsed, shown on hover */}
+                <div className="mt-2 flex lg:hidden lg:group-hover/sidebar:flex">
+                  {mode === 'seller' ? (
+                    /* In seller mode → show "switch back to buyer" */
+                    <button
+                      onClick={() => { setMode('buyer'); navigate('/home'); }}
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                    >
+                      <Heart className="size-3 shrink-0" />
+                      <span className="whitespace-nowrap">
+                        {language === 'en' ? 'Switch to Buyer' : 'Mode Pembeli'}
+                      </span>
+                    </button>
+                  ) : (user?.sellerStatus ?? 'unverified') === 'pending' ? (
+                    /* Pending review → informational state */
+                    <button
+                      onClick={() => { onClose(); navigate('/seller-verification'); }}
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-300/40 hover:bg-amber-500/20 transition-colors"
+                    >
+                      <Clock className="size-3 shrink-0" />
+                      <span className="whitespace-nowrap">
+                        {language === 'en' ? 'Pending Review' : 'Sedang Ditinjau'}
+                      </span>
+                    </button>
+                  ) : (user?.sellerStatus ?? 'unverified') === 'verified' ? (
+                    /* Verified → activate seller mode directly */
+                    <button
+                      onClick={() => { setMode('seller'); navigate('/home'); }}
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                    >
+                      <Store className="size-3 shrink-0" />
+                      <span className="whitespace-nowrap">
+                        {language === 'en' ? 'Seller Mode' : 'Mode Penjual'}
+                      </span>
+                    </button>
+                  ) : (
+                    /* Unverified / rejected → go to verification page */
+                    <button
+                      onClick={() => { onClose(); navigate('/seller-verification'); }}
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                    >
+                      <Store className="size-3 shrink-0" />
+                      <span className="whitespace-nowrap">
+                        {language === 'en' ? 'Become a Seller' : 'Mode Penjual'}
+                      </span>
+                    </button>
+                  )}
                 </div>
               </>
             ) : (
@@ -331,8 +302,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           {/* ── Settings bawah ── */}
           <div className="px-2 py-2 border-t border-border flex flex-col gap-1 shrink-0">
 
+            {/* Hubungi Kami */}
+            <Link
+              to="/contact"
+              onClick={onClose}
+              title={language === 'en' ? 'Contact Us' : 'Hubungi Kami'}
+              className="flex items-center h-10 rounded-lg text-sm text-foreground hover:bg-accent transition-colors"
+            >
+              <div className="w-10 h-10 flex items-center justify-center shrink-0 ml-1">
+                <Phone className="size-4 text-primary" />
+              </div>
+              <span className={`whitespace-nowrap ml-2 ${fadeOnExpand}`}>
+                {language === 'en' ? 'Contact Us' : 'Hubungi Kami'}
+              </span>
+            </Link>
+
             {/* Baris: tema + bahasa */}
-            <div className="flex items-center mb-0.5 overflow-hidden">
+            <div className="flex items-center overflow-hidden">
               <div className="w-10 h-10 flex items-center justify-center shrink-0 ml-1">
                 <button
                   onClick={toggleTheme}
@@ -357,136 +343,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               </div>
             </div>
 
-            {/* Hubungi Kami */}
-            <Link
-              to="/contact"
-              onClick={onClose}
-              title={language === 'en' ? 'Contact Us' : 'Hubungi Kami'}
-              className="flex items-center h-10 rounded-lg text-sm text-foreground hover:bg-accent transition-colors"
-            >
-              <div className="w-10 h-10 flex items-center justify-center shrink-0 ml-1">
-                <Phone className="size-4 text-primary" />
-              </div>
-              <span className={`whitespace-nowrap ml-2 ${fadeOnExpand}`}>
-                {language === 'en' ? 'Contact Us' : 'Hubungi Kami'}
-              </span>
-            </Link>
-
-            {/* Sign out */}
-            {user && (
-              <button
-                onClick={handleSignOut}
-                title={t('nav.signOut')}
-                className="flex items-center h-10 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors w-full"
-              >
-                <div className="w-10 h-10 flex items-center justify-center shrink-0 ml-1">
-                  <LogOut className="size-4" />
-                </div>
-                <span className={`whitespace-nowrap ml-2 ${fadeOnExpand}`}>
-                  {t('nav.signOut')}
-                </span>
-              </button>
-            )}
           </div>
 
         </div>
       </aside>
 
-      {/* ── Account Settings Modal ── */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setModalOpen(false)} />
-          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-sm border border-border overflow-hidden">
-
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h2 className="text-base font-bold text-foreground">
-                {language === 'en' ? 'Account Settings' : 'Pengaturan Akun'}
-              </h2>
-              <button onClick={() => setModalOpen(false)} className="p-1.5 rounded-md hover:bg-accent transition-colors">
-                <X className="size-4" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-6">
-              {/* Ganti Password */}
-              <section>
-                <div className="flex items-center gap-2 mb-3">
-                  <KeyRound className="size-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-foreground">
-                    {language === 'en' ? 'Change Password' : 'Ganti Password'}
-                  </h3>
-                </div>
-                <form onSubmit={handleChangePassword} className="space-y-2">
-                  <input
-                    type="password"
-                    placeholder={language === 'en' ? 'New password' : 'Password baru'}
-                    value={newPass}
-                    onChange={(e) => { setNewPass(e.target.value); setPassDone(false); setPassError(''); }}
-                    className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                  <input
-                    type="password"
-                    placeholder={language === 'en' ? 'Confirm password' : 'Konfirmasi password'}
-                    value={confirmPass}
-                    onChange={(e) => { setConfirmPass(e.target.value); setPassDone(false); setPassError(''); }}
-                    className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                  {passError && <p className="text-xs text-destructive">{passError}</p>}
-                  {passDone && (
-                    <p className="text-xs text-green-600 flex items-center gap-1">
-                      <Check className="size-3" />
-                      {language === 'en' ? 'Password updated!' : 'Password berhasil diubah!'}
-                    </p>
-                  )}
-                  <button
-                    type="submit"
-                    disabled={passSaving || !newPass}
-                    className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                  >
-                    {passSaving && <Loader2 className="size-3.5 animate-spin" />}
-                    {language === 'en' ? 'Save Password' : 'Simpan Password'}
-                  </button>
-                </form>
-              </section>
-
-              <div className="border-t border-border" />
-
-              {/* Ganti Kampus */}
-              <section>
-                <div className="flex items-center gap-2 mb-3">
-                  <MapPin className="size-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-foreground">
-                    {language === 'en' ? 'Campus' : 'Kampus'}
-                  </h3>
-                </div>
-                <div className="space-y-2">
-                  <select
-                    value={campus}
-                    onChange={(e) => { setCampus(e.target.value); setCampusDone(false); }}
-                    className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
-                  >
-                    {CAMPUSES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  {campusDone && (
-                    <p className="text-xs text-green-600 flex items-center gap-1">
-                      <Check className="size-3" />
-                      {language === 'en' ? 'Campus updated!' : 'Kampus berhasil diperbarui!'}
-                    </p>
-                  )}
-                  <button
-                    onClick={handleChangeCampus}
-                    disabled={campusSaving || campus === user?.campus}
-                    className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                  >
-                    {campusSaving && <Loader2 className="size-3.5 animate-spin" />}
-                    {language === 'en' ? 'Save Campus' : 'Simpan Kampus'}
-                  </button>
-                </div>
-              </section>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

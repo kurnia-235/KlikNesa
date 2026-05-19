@@ -10,6 +10,9 @@ interface User {
   rating: number;
   transactionCount: number;
   trustBadge: boolean;
+  sellerStatus: string;
+  avatarUrl: string | null;
+  whatsappNumber: string;
 }
 
 interface AuthContextType {
@@ -54,6 +57,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           rating: Number(data.rating),
           transactionCount: data.transaction_count,
           trustBadge: data.trust_badge,
+          sellerStatus: data.seller_status ?? 'unverified',
+          avatarUrl: data.avatar_url ?? null,
+          whatsappNumber: data.whatsapp_number ?? '',
         });
         return;
       }
@@ -70,6 +76,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         rating: 0,
         transactionCount: 0,
         trustBadge: false,
+        sellerStatus: 'unverified',
+        avatarUrl: null,
+        whatsappNumber: '',
       });
     } catch (err) {
       console.error('[Auth] fetchProfile exception:', err);
@@ -85,6 +94,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           rating: 0,
           transactionCount: 0,
           trustBadge: false,
+          sellerStatus: 'unverified',
+          avatarUrl: null,
+          whatsappNumber: '',
         });
       }
     }

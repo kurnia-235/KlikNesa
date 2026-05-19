@@ -6,7 +6,7 @@ import { supabase } from '../../../utils/supabase/client';
 import { MessageCircle, Send, ArrowLeft, Search, ShoppingBag } from 'lucide-react';
 import Layout from './Layout';
 
-interface ConvUser { id: string; name: string; campus: string; }
+interface ConvUser { id: string; name: string; campus: string; avatarUrl: string | null; }
 
 interface Conversation {
   id: string;
@@ -70,11 +70,14 @@ export default function Conversations() {
       const ids = [...new Set(rawConvs.flatMap(c => [c.buyer_id, c.seller_id]))];
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, name, campus')
+        .select('id, name, campus, avatar_url')
         .in('id', ids);
 
-      const pMap = new Map((profiles ?? []).map(p => [p.id, p as ConvUser]));
-      const fallback = (id: string): ConvUser => ({ id, name: 'Unknown', campus: '' });
+      const pMap = new Map((profiles ?? []).map(p => [
+        p.id,
+        { id: p.id, name: p.name, campus: p.campus, avatarUrl: (p as any).avatar_url ?? null } as ConvUser,
+      ]));
+      const fallback = (id: string): ConvUser => ({ id, name: 'Unknown', campus: '', avatarUrl: null });
 
       setConversations(
         rawConvs.map(c => ({
@@ -253,9 +256,13 @@ export default function Conversations() {
                       isActive ? 'bg-primary/5 border-l-primary' : 'border-l-transparent'
                     }`}
                   >
-                    <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                      <span className="text-sm font-bold text-primary">{other.name.charAt(0).toUpperCase()}</span>
-                    </div>
+                    {other.avatarUrl ? (
+                      <img src={other.avatarUrl} alt={other.name} className="size-9 rounded-full object-cover shrink-0 mt-0.5" />
+                    ) : (
+                      <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-sm font-bold text-primary">{other.name.charAt(0).toUpperCase()}</span>
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start gap-1 mb-0.5">
                         <p className="text-sm font-semibold text-foreground truncate">{other.name}</p>
@@ -313,11 +320,15 @@ export default function Conversations() {
                 >
                   <ArrowLeft className="size-4" />
                 </button>
-                <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <span className="text-sm font-bold text-primary">
-                    {otherUser?.name.charAt(0).toUpperCase() ?? '?'}
-                  </span>
-                </div>
+                {otherUser?.avatarUrl ? (
+                  <img src={otherUser.avatarUrl} alt={otherUser.name} className="size-9 rounded-full object-cover shrink-0" />
+                ) : (
+                  <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-bold text-primary">
+                      {otherUser?.name.charAt(0).toUpperCase() ?? '?'}
+                    </span>
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold text-foreground truncate">{otherUser?.name}</p>
                   {activeConv.product_title && (

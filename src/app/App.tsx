@@ -17,6 +17,8 @@ import CreateListing from './components/CreateListing';
 import Conversations from './components/Conversations';
 import AdminDashboard from './components/AdminDashboard';
 import Contact from './components/Contact';
+import ProfileSettings from './components/ProfileSettings';
+import SellerVerification from './components/SellerVerification';
 
 function AppRoutes() {
   const { session, loading } = useAuth();
@@ -91,7 +93,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/cart"
+        path="/wishlist"
         element={
           <ProtectedRoute>
             <Cart />
@@ -107,6 +109,22 @@ function AppRoutes() {
         }
       />
       <Route path="/contact" element={<Contact />} />
+      <Route
+        path="/seller-verification"
+        element={
+          <ProtectedRoute>
+            <SellerVerification />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile-settings"
+        element={
+          <ProtectedRoute>
+            <ProfileSettings />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   );
 }

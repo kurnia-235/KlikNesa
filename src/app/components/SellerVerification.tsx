@@ -91,10 +91,20 @@ export default function SellerVerification() {
     setSendingOtp(false);
 
     if (error) {
-      // FunctionsHttpError: .context berisi JSON body dari server { error: '...' }
-      // FunctionsFetchError: jaringan/CORS benar-benar gagal
+      // FunctionsHttpError.context = body JSON yang dikembalikan server
+      // Coba beberapa jalur untuk mendapat pesan yang bermakna:
+      //   ctx.error   → { error: '...' }    (format kita)
+      //   ctx.message → { message: '...' }  (format Supabase/Hono default)
+      //   ctx string  → body plain text
+      //   error.message → fallback SDK ('Edge Function returned a non-2xx status code')
       const ctx = (error as any)?.context;
-      const msg = ctx?.error ?? error.message ?? 'Gagal mengirim OTP.';
+      console.error('[send-otp] error:', error, '| context:', ctx);
+      const msg =
+        ctx?.error ??
+        ctx?.message ??
+        (typeof ctx === 'string' ? ctx : null) ??
+        error.message ??
+        'Gagal mengirim OTP.';
       setOtpError(msg);
       return;
     }
@@ -115,7 +125,13 @@ export default function SellerVerification() {
 
     if (error) {
       const ctx = (error as any)?.context;
-      const msg = ctx?.error ?? error.message ?? 'Kode OTP salah.';
+      console.error('[verify-otp] error:', error, '| context:', ctx);
+      const msg =
+        ctx?.error ??
+        ctx?.message ??
+        (typeof ctx === 'string' ? ctx : null) ??
+        error.message ??
+        'Kode OTP salah.';
       setOtpError(msg);
       return;
     }

@@ -582,23 +582,37 @@ app.get("/make-server-2fc7af5c/admin/users", requireAuth, async (c) => {
 
 const OTP_TTL_MS = 5 * 60 * 1000; // 5 menit
 
+/** Normalisasi ke format 628xxx — aman untuk semua format input Indonesia */
 function normalizePhone(raw: string): string {
-  const digits = raw.replace(/\D/g, '');
+  // Ambil digit saja terlebih dahulu untuk keamanan
+  const digits = String(raw ?? '').replace(/\D/g, '');
+  if (!digits) return '';
   if (digits.startsWith('62')) return digits;
-  if (digits.startsWith('0')) return '62' + digits.slice(1);
+  if (digits.startsWith('0'))  return '62' + digits.slice(1);
+  // Jika tidak ada awalan 0 atau 62 (contoh: 85150673929), tetap tambahkan 62
   return '62' + digits;
 }
 
 async function sendOtpLogic(userId: string, phone: string): Promise<{ ok: boolean; error?: string }> {
-  const cleaned = phone?.replace(/\D/g, '') ?? '';
+  // Sanitasi defensif: pastikan phone adalah string sebelum diproses
+  const cleaned = String(phone ?? '').replace(/\D/g, '');
+
+  console.log(`[send-otp] Input phone: "${phone}" → cleaned: "${cleaned}"`);
+
   if (cleaned.length < 9 || cleaned.length > 13) {
-    return { ok: false, error: 'Nomor WhatsApp tidak valid (9–13 digit).' };
+    return { ok: false, error: `Nomor WhatsApp tidak valid (${cleaned.length} digit, butuh 9–13).` };
   }
+
   const waPhone = normalizePhone(cleaned);
+  console.log(`[send-otp] waPhone setelah normalisasi: "${waPhone}"`);
+
   const otp = Math.floor(1000 + Math.random() * 9000);
 
+  // Simpan OTP ke KV store sebelum menembak Wablas
   await kv.set(`otp:${userId}`, {
-    code: otp, phone: waPhone, expiresAt: Date.now() + OTP_TTL_MS,
+    code: otp,
+    phone: waPhone,
+    expiresAt: Date.now() + OTP_TTL_MS,
   });
 
   const wablasDomain = Deno.env.get('WABLAS_DOMAIN') ?? 'console.wablas.com';
@@ -608,17 +622,40 @@ async function sendOtpLogic(userId: string, phone: string): Promise<{ ok: boolea
     `[KlikNesa] Kode OTP Verifikasi Penjual Anda adalah: ${otp}. ` +
     `Jangan bagikan kode ini kepada siapa pun yaa.`;
 
-  console.log(`[send-otp] → ${waPhone} via ${wablasUrl}`);
-  const res = await fetch(wablasUrl, {
-    method: 'POST',
-    headers: { 'Authorization': wablasToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone: waPhone, message }),
-  });
-  const resText = await res.text();
-  console.log(`[send-otp] Wablas ${res.status}:`, resText);
+  console.log(`[send-otp] Menembak Wablas → URL: ${wablasUrl} | To: ${waPhone}`);
 
-  if (!res.ok) return { ok: false, error: `Gagal mengirim OTP (${res.status}). Coba lagi.` };
-  return { ok: true };
+  // Try-catch eksplisit agar crash jaringan tidak menghancurkan seluruh request
+  try {
+    const res = await fetch(wablasUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': wablasToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ phone: waPhone, message }),
+    });
+
+    // Baca body response Wablas untuk log & pesan error yang informatif
+    const resText = await res.text();
+    console.log(`[send-otp] Wablas response HTTP ${res.status}:`, resText);
+
+    if (!res.ok) {
+      // Kembalikan detail HTTP status + body Wablas agar mudah didiagnosis
+      return {
+        ok: false,
+        error: `Wablas error ${res.status}: ${resText || '(no body)'}`,
+      };
+    }
+
+    return { ok: true };
+  } catch (err) {
+    // Jaringan gagal total (DNS, timeout, koneksi ditolak, dsb)
+    console.error('[send-otp] Wablas fetch EXCEPTION:', err);
+    return {
+      ok: false,
+      error: `Gagal menghubungi server Wablas: ${(err as Error)?.message ?? String(err)}`,
+    };
+  }
 }
 
 async function verifyOtpLogic(userId: string, code: string): Promise<{ ok: boolean; phone?: string; error?: string }> {

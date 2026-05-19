@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import { useAuth } from './AuthContext';
 import { useLanguage } from './LanguageContext';
 import { useTheme } from './ThemeContext';
-import { ShoppingBag, Sun, Moon, Languages } from 'lucide-react';
+import { ShoppingBag, Sun, Moon, Languages, MailCheck } from 'lucide-react';
 
-const CAMPUSES = ['Ketintang', 'Lidah Wetan', 'Magetan'];
+const CAMPUSES = ['Lidah Wetan', 'Ketintang', 'Moestopo', 'Magetan'];
 
 export default function Signup() {
   const [email, setEmail] = useState('');
@@ -14,11 +14,10 @@ export default function Signup() {
   const [campus, setCampus] = useState(CAMPUSES[0]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const { signUp } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
-  const navigate = useNavigate();
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -26,7 +25,11 @@ export default function Signup() {
 
     try {
       await signUp(email, password, name, campus);
-      navigate('/home');
+      setSuccess(true);
+      setEmail('');
+      setPassword('');
+      setName('');
+      setCampus(CAMPUSES[0]);
     } catch (err: any) {
       setError(err.message || 'Signup failed. Please try again.');
     } finally {
@@ -35,7 +38,7 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-secondary/10 transition-colors duration-300 flex items-center justify-center p-4 py-8">
+    <div className="relative min-h-screen bg-gradient-to-br from-background via-accent/20 to-secondary/10 transition-colors duration-300 flex items-center justify-center p-4 py-8">
       <div className="w-full max-w-md animate-scale-in">
         <div className="absolute top-4 right-4 flex gap-2">
           <button
@@ -63,6 +66,22 @@ export default function Signup() {
         </div>
 
         <div className="bg-card p-6 sm:p-8 rounded-2xl border-2 border-border shadow-lg hover:shadow-xl transition-shadow duration-300">
+          {success ? (
+            <div className="flex flex-col items-center text-center gap-4 py-4 animate-fade-in">
+              <MailCheck className="size-16 text-primary" />
+              <h3 className="text-xl font-bold text-foreground">Pendaftaran Berhasil!</h3>
+              <p className="text-muted-foreground text-sm sm:text-base">
+                Silakan cek email UNESA Anda untuk melakukan konfirmasi akun sebelum masuk.
+              </p>
+              <Link
+                to="/login"
+                className="mt-2 w-full py-3 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 hover:shadow-lg transition-all duration-300 text-center"
+              >
+                Ke Halaman Masuk
+              </Link>
+            </div>
+          ) : (
+          <>
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             {error && (
               <div className="p-4 rounded-lg bg-destructive/10 border-2 border-destructive text-destructive text-sm animate-fade-in">
@@ -158,6 +177,8 @@ export default function Signup() {
               </Link>
             </p>
           </div>
+          </>
+          )}
         </div>
 
         <div className="mt-6 text-center">

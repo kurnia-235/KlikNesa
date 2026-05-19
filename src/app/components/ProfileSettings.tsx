@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import Layout from './Layout';
 
-const CAMPUSES = ['Ketintang', 'Lidah Wetan', 'Magetan'] as const;
+const CAMPUSES = ['Lidah Wetan', 'Ketintang', 'Moestopo', 'Magetan'] as const;
 
 export default function ProfileSettings() {
   const { user, signOut, refreshProfile } = useAuth();

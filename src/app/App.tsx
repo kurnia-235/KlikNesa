@@ -16,9 +16,33 @@ import MyListings from './components/MyListings';
 import CreateListing from './components/CreateListing';
 import Conversations from './components/Conversations';
 import AdminDashboard from './components/AdminDashboard';
+import AdminReports from './components/AdminReports';
 import Contact from './components/Contact';
 import ProfileSettings from './components/ProfileSettings';
 import SellerVerification from './components/SellerVerification';
+
+const isAdmin = (email?: string | null) => !!email?.endsWith('@admin.com');
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { session, user, loading } = useAuth();
+
+  // Tunggu auth selesai, dan tunggu profil user selesai dimuat
+  // agar tidak ada jendela singkat di mana user null tapi session ada
+  if (loading || (session && !user)) {
+    return (
+      <div className="size-full flex items-center justify-center bg-background">
+        <div className="size-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!session) return <Navigate to="/login" replace />;
+
+  // Blokir siapa pun yang bukan @admin.com — termasuk user null
+  if (!isAdmin(user?.email)) return <Navigate to="/home" replace />;
+
+  return <>{children}</>;
+}
 
 function AppRoutes() {
   const { session, loading } = useAuth();
@@ -31,11 +55,13 @@ function AppRoutes() {
     );
   }
 
+  const adminEmail = isAdmin(session?.user?.email);
+
   return (
     <Routes>
-      <Route path="/" element={session ? <Navigate to="/dashboard" replace /> : <Landing />} />
-      <Route path="/login" element={session ? <Navigate to="/dashboard" replace /> : <Login />} />
-      <Route path="/signup" element={session ? <Navigate to="/dashboard" replace /> : <Signup />} />
+      <Route path="/" element={session ? <Navigate to={adminEmail ? '/admin' : '/dashboard'} replace /> : <Landing />} />
+      <Route path="/login" element={session ? <Navigate to={adminEmail ? '/admin' : '/dashboard'} replace /> : <Login />} />
+      <Route path="/signup" element={session ? <Navigate to={adminEmail ? '/admin' : '/dashboard'} replace /> : <Signup />} />
       <Route
         path="/dashboard"
         element={
@@ -87,9 +113,17 @@ function AppRoutes() {
       <Route
         path="/admin"
         element={
-          <ProtectedRoute>
+          <AdminRoute>
             <AdminDashboard />
-          </ProtectedRoute>
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/reports"
+        element={
+          <AdminRoute>
+            <AdminReports />
+          </AdminRoute>
         }
       />
       <Route

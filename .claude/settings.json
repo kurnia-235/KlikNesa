@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(SUPABASE_ACCESS_TOKEN=\"sbp_acd20268d27647b1d610cb06b8bc932d6435000c\" npx supabase functions deploy server --project-ref iqujmncndavirtgrvxpn)"
+    ]
+  }
+}

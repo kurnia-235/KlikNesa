@@ -1,158 +1,165 @@
 import { Link } from 'react-router';
 import { useLanguage } from './LanguageContext';
 import { useTheme } from './ThemeContext';
-import { ArrowLeft, Mail, Phone, MessageCircle, Instagram, Linkedin, Sun, Moon, Languages } from 'lucide-react';
+import { ArrowLeft, Mail, MessageCircle, Instagram, Linkedin, Sun, Moon, Languages } from 'lucide-react';
+
+const WA_NUMBER  = '+62 851-5067-3929';
+const WA_LINK    = 'https://wa.me/6285150673929?text=Halo%20Admin%20KlikNesa,%20saya%20butuh%20bantuan...';
+const IG_HANDLE  = '@kliknesa';
+const IG_LINK    = 'https://instagram.com/kliknesa';
+const LI_LINK    = 'https://linkedin.com/company/kliknesa';
+const EMAIL      = 'support@kliknesa.com';
 
 export default function Contact() {
   const { t, language, setLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
 
-  const contactInfo = {
-    name: 'KlikNesa Support Team',
-    nameId: 'Tim Dukungan KlikNesa',
-    email: 'support@kliknesa.com',
-    whatsapp: '+62 812 3456 7890',
-    whatsappLink: 'https://wa.me/6281234567890',
-    instagram: '@kliknesa',
-    instagramLink: 'https://instagram.com/kliknesa',
-    linkedin: 'KlikNesa',
-    linkedinLink: 'https://linkedin.com/company/kliknesa'
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-secondary/10 transition-colors duration-300">
-      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-4xl">
-        <div className="absolute top-4 right-4 flex gap-2">
-          <button
-            onClick={toggleTheme}
-            className="p-2 rounded-lg bg-card border-2 border-border hover:bg-accent transition-all duration-300"
-          >
-            {theme === 'light' ? <Moon className="size-5" /> : <Sun className="size-5" />}
-          </button>
-          <button
-            onClick={() => setLanguage(language === 'en' ? 'id' : 'en')}
-            className="px-3 py-2 rounded-lg bg-card border-2 border-border hover:bg-accent transition-all duration-300 flex items-center gap-1.5"
-          >
-            <Languages className="size-4" />
-            <span className="text-sm font-medium">{language === 'en' ? 'EN' : 'ID'}</span>
-          </button>
-        </div>
+    <div className="min-h-screen lg:h-screen bg-background transition-colors duration-300 flex flex-col justify-center items-center py-6 relative">
 
-        <div className="mb-6 sm:mb-8 animate-fade-in">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors duration-300 mb-6"
-          >
-            <ArrowLeft className="size-5" />
-            {t('landing.backToHome')}
-          </Link>
-        </div>
+      {/* ── Top-right controls ── */}
+      <div className="absolute top-4 right-4 flex gap-2 z-10">
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-lg bg-card border border-border hover:bg-accent transition-colors duration-200"
+          aria-label="Toggle theme"
+        >
+          {theme === 'light' ? <Moon className="size-4 text-muted-foreground" /> : <Sun className="size-4 text-muted-foreground" />}
+        </button>
+        <button
+          onClick={() => setLanguage(language === 'en' ? 'id' : 'en')}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-card border border-border hover:bg-accent transition-colors duration-200 text-sm text-muted-foreground font-medium"
+        >
+          <Languages className="size-4" />
+          {language === 'en' ? 'EN' : 'ID'}
+        </button>
+      </div>
 
-        <div className="text-center mb-8 sm:mb-12 animate-scale-in">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3 sm:mb-4">
+      <div className="w-full max-w-3xl px-4 sm:px-6 space-y-5">
+
+        {/* ── Back link ── */}
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
+        >
+          <ArrowLeft className="size-4" />
+          {t('landing.backToHome')}
+        </Link>
+
+        {/* ── Header ── */}
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
             {t('contact.title')}
           </h1>
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-            {t('contact.subtitle')}
+          <p className="text-sm text-muted-foreground mt-1">
+            {language === 'en' ? 'KlikNesa Team' : 'Tim KlikNesa'}
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6 sm:gap-8 mb-8">
-          <div className="bg-card border-2 border-border rounded-xl p-6 sm:p-8 shadow-lg hover:shadow-xl hover:border-primary/50 transition-all duration-300 animate-slide-up">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="size-12 bg-primary/10 rounded-full flex items-center justify-center">
-                <Mail className="size-6 text-primary" />
+        {/* ── Contact cards ── */}
+        <div className="grid sm:grid-cols-2 gap-4">
+
+          {/* Email */}
+          <div className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow duration-200">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="size-9 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+                <Mail className="size-4 text-primary" />
               </div>
-              <div>
-                <h3 className="font-bold text-foreground text-lg">{t('contact.email')}</h3>
-              </div>
+              <h3 className="font-semibold text-foreground text-sm">{t('contact.email')}</h3>
             </div>
             <a
-              href={`mailto:${contactInfo.email}`}
-              className="text-primary hover:underline text-base sm:text-lg transition-colors duration-300"
+              href={`mailto:${EMAIL}`}
+              className="text-primary hover:underline text-sm font-medium transition-colors duration-200"
             >
-              {contactInfo.email}
+              {EMAIL}
             </a>
-            <p className="text-sm text-muted-foreground mt-3">
-              {language === 'en'
-                ? 'Send us an email for general inquiries'
-                : 'Kirim email untuk pertanyaan umum'}
+            <p className="text-xs text-muted-foreground mt-1.5">
+              {language === 'en' ? 'For general inquiries & feedback' : 'Untuk pertanyaan umum & masukan'}
             </p>
           </div>
 
-          <div className="bg-card border-2 border-border rounded-xl p-6 sm:p-8 shadow-lg hover:shadow-xl hover:border-primary/50 transition-all duration-300 animate-slide-up" style={{ animationDelay: '100ms' }}>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="size-12 bg-secondary/20 rounded-full flex items-center justify-center">
-                <Phone className="size-6 text-primary" />
+          {/* WhatsApp */}
+          <div className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow duration-200">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="size-9 bg-[#25D366]/10 rounded-lg flex items-center justify-center shrink-0">
+                <MessageCircle className="size-4 text-[#25D366]" />
               </div>
-              <div>
-                <h3 className="font-bold text-foreground text-lg">{t('contact.whatsapp')}</h3>
-              </div>
+              <h3 className="font-semibold text-foreground text-sm">{t('contact.whatsapp')}</h3>
             </div>
-            <p className="text-foreground text-base sm:text-lg mb-4">{contactInfo.whatsapp}</p>
+            <p className="text-sm font-medium text-foreground mb-3">{WA_NUMBER}</p>
             <a
-              href={contactInfo.whatsappLink}
+              href={WA_LINK}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg bg-[#25D366] text-white font-medium hover:bg-[#20BA5A] transition-all duration-300 hover:scale-105 shadow-md hover:shadow-lg"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#25D366] text-white text-sm font-semibold hover:bg-[#20BA5A] transition-colors duration-200 shadow-sm"
             >
-              <MessageCircle className="size-5" />
+              <MessageCircle className="size-4" />
               {t('contact.chatOnWhatsApp')}
             </a>
           </div>
+
         </div>
 
-        <div className="bg-card border-2 border-border rounded-xl p-6 sm:p-8 shadow-lg animate-slide-up" style={{ animationDelay: '200ms' }}>
-          <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-6 text-center">
-            {t('contact.followUs')}
-          </h3>
-          <div className="flex justify-center gap-4 sm:gap-6">
-            <a
-              href={contactInfo.instagramLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex flex-col items-center gap-2 p-4 sm:p-6 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 text-white hover:scale-110 transition-all duration-300 shadow-md hover:shadow-xl min-w-[120px]"
-            >
-              <Instagram className="size-8 sm:size-10" />
-              <span className="font-medium text-sm sm:text-base">Instagram</span>
-              <span className="text-xs sm:text-sm opacity-90">{contactInfo.instagram}</span>
-            </a>
+        {/* ── Follow Us + Narahubung ── */}
+        <div className="grid sm:grid-cols-2 gap-4">
 
+          {/* Ikuti Kami */}
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-4">{t('contact.followUs')}</h3>
+            <div className="flex gap-3">
+              {/* Instagram */}
+              <a
+                href={IG_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 text-white hover:opacity-90 transition-opacity duration-200 shadow-sm"
+              >
+                <Instagram className="size-5" />
+                <span className="text-xs font-semibold">Instagram</span>
+                <span className="text-[10px] opacity-85">{IG_HANDLE}</span>
+              </a>
+
+              {/* LinkedIn */}
+              <a
+                href={LI_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl text-white hover:opacity-90 transition-opacity duration-200 shadow-sm"
+                style={{ backgroundColor: '#0077B5' }}
+              >
+                <Linkedin className="size-5" />
+                <span className="text-xs font-semibold">LinkedIn</span>
+                <span className="text-[10px] opacity-85">KlikNesa</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Narahubung */}
+          <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 flex flex-col justify-center">
+            <h3 className="text-sm font-semibold text-foreground mb-2">
+              {language === 'en' ? 'Contact Person' : 'Narahubung'}
+            </h3>
+            <p className="text-sm font-medium text-primary">
+              {language === 'en' ? 'KlikNesa Support Team' : 'Tim Dukungan KlikNesa'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {language === 'en'
+                ? 'Mon – Fri · 09.00 – 17.00 WIB'
+                : 'Senin – Jumat · 09.00 – 17.00 WIB'}
+            </p>
             <a
-              href={contactInfo.linkedinLink}
+              href={WA_LINK}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex flex-col items-center gap-2 p-4 sm:p-6 rounded-xl bg-[#0A66C2] text-white hover:scale-110 transition-all duration-300 shadow-md hover:shadow-xl min-w-[120px]"
+              className="mt-3 inline-flex items-center gap-1.5 text-xs text-primary font-semibold hover:underline transition-colors duration-200"
             >
-              <Linkedin className="size-8 sm:size-10" />
-              <span className="font-medium text-sm sm:text-base">LinkedIn</span>
-              <span className="text-xs sm:text-sm opacity-90">{contactInfo.linkedin}</span>
+              <MessageCircle className="size-3.5" />
+              {language === 'en' ? 'Chat directly via WhatsApp' : 'Chat langsung via WhatsApp'}
             </a>
           </div>
+
         </div>
 
-        <div className="mt-8 sm:mt-12 bg-primary/5 border-2 border-primary/20 rounded-xl p-6 sm:p-8 text-center animate-fade-in">
-          <h3 className="text-lg sm:text-xl font-bold text-foreground mb-3">
-            {language === 'en' ? 'Contact Person' : 'Narahubung'}
-          </h3>
-          <p className="text-base sm:text-lg font-medium text-primary mb-2">
-            {language === 'en' ? contactInfo.name : contactInfo.nameId}
-          </p>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            {language === 'en'
-              ? 'Available Monday - Friday, 9 AM - 5 PM WIB'
-              : 'Tersedia Senin - Jumat, 09.00 - 17.00 WIB'}
-          </p>
-        </div>
-
-        <div className="mt-8 text-center">
-          <Link
-            to="/"
-            className="text-primary hover:underline font-medium transition-colors duration-300"
-          >
-            {language === 'en' ? 'Back to Homepage' : 'Kembali ke Beranda'}
-          </Link>
-        </div>
       </div>
     </div>
   );

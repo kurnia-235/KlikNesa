@@ -32,6 +32,11 @@ export default function SellerVerification() {
   const [otpError, setOtpError] = useState('');
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
+  // Validasi: hanya digit, panjang 10–13 karakter
+  const waDigits = waNumber.replace(/\D/g, '');
+  const waValid  = waDigits.length >= 10 && waDigits.length <= 13;
 
   const sellerStatus = user?.sellerStatus ?? 'unverified';
 
@@ -41,6 +46,13 @@ export default function SellerVerification() {
       navigate('/home', { replace: true });
     }
   }, [sellerStatus]);
+
+  // Countdown timer — berkurang 1 setiap detik sampai 0
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const id = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [countdown]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -66,12 +78,11 @@ export default function SellerVerification() {
   };
 
   const sendOTP = async () => {
-    const cleaned = waNumber.replace(/\D/g, '');
-    if (cleaned.length < 9 || cleaned.length > 13) {
+    if (!waValid) {
       setOtpError(
         language === 'en'
-          ? 'Enter a valid WhatsApp number (9–13 digits).'
-          : 'Masukkan nomor WhatsApp yang valid (9–13 digit).',
+          ? 'Enter a valid WhatsApp number (10–13 digits, numbers only).'
+          : 'Masukkan nomor WhatsApp yang valid (10–13 digit, hanya angka).',
       );
       return;
     }
@@ -109,6 +120,7 @@ export default function SellerVerification() {
     }
 
     setOtpSent(true);
+    setCountdown(60);
   };
 
   const verifyOTP = async () => {
@@ -154,6 +166,7 @@ export default function SellerVerification() {
     setOtpInput('');
     setOtpError('');
     setVerifiedPhone('');
+    setCountdown(0);
   };
 
   const handleSubmit = async () => {
@@ -342,30 +355,50 @@ export default function SellerVerification() {
                     <div className="flex gap-2">
                       <input
                         type="tel"
+                        inputMode="numeric"
                         value={waNumber}
                         onChange={(e) => {
-                          setWaNumber(e.target.value);
+                          setWaNumber(e.target.value.replace(/\D/g, ''));
                           setOtpSent(false);
                           setOtpInput('');
                           setOtpError('');
+                          setCountdown(0);
                         }}
                         placeholder="08xxxxxxxxxx"
+                        maxLength={15}
                         className="flex-1 px-4 py-2.5 rounded-lg bg-input-background border-2 border-border focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/20 transition-all text-sm"
                         disabled={sendingOtp}
                       />
                       <button
                         type="button"
                         onClick={sendOTP}
-                        disabled={!waNumber || sendingOtp}
-                        className="px-4 py-2.5 rounded-lg bg-green-700 text-white text-sm font-semibold hover:bg-green-800 transition-colors disabled:opacity-50 whitespace-nowrap"
+                        disabled={!waValid || sendingOtp || (otpSent && countdown > 0)}
+                        className="px-4 py-2.5 rounded-lg bg-green-700 text-white text-sm font-semibold hover:bg-green-800 transition-colors disabled:opacity-50 whitespace-nowrap min-w-[110px] text-center"
                       >
                         {sendingOtp
                           ? (language === 'en' ? 'Sending…' : 'Mengirim…')
-                          : otpSent
-                            ? (language === 'en' ? 'Resend' : 'Kirim Ulang')
-                            : (language === 'en' ? 'Send OTP' : 'Kirim OTP')}
+                          : otpSent && countdown > 0
+                            ? `${language === 'en' ? 'Resend' : 'Kirim Ulang'} (${countdown}s)`
+                            : otpSent
+                              ? (language === 'en' ? 'Resend' : 'Kirim Ulang')
+                              : (language === 'en' ? 'Send OTP' : 'Kirim OTP')}
                       </button>
                     </div>
+
+                    {/* Hint validasi nomor */}
+                    {waNumber.length > 0 && !waValid && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <AlertCircle className="size-3 shrink-0" />
+                        {language === 'en'
+                          ? `${waDigits.length} digits — need 10–13 digits (numbers only)`
+                          : `${waDigits.length} digit — butuh 10–13 digit (hanya angka)`}
+                      </p>
+                    )}
+                    {waValid && !otpSent && (
+                      <p className="text-xs text-green-600 dark:text-green-400">
+                        ✓ {language === 'en' ? 'Valid number format' : 'Format nomor valid'}
+                      </p>
+                    )}
 
                     {/* Input kode OTP + tombol Verifikasi */}
                     {otpSent && (

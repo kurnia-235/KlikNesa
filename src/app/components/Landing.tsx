@@ -7,113 +7,131 @@ export default function Landing() {
   const { t, language, setLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
 
+  const features = [
+    { icon: Shield,      title: t('landing.studentVerified'), desc: t('landing.studentVerifiedDesc') },
+    { icon: MapPin,      title: t('landing.campusFocused'),   desc: t('landing.campusFocusedDesc') },
+    { icon: Handshake,   title: t('landing.safeTrading'),     desc: t('landing.safeTradingDesc') },
+    { icon: ShoppingBag, title: t('landing.affordable'),      desc: t('landing.affordableDesc') },
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-secondary/10 transition-colors duration-300">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <nav className="flex flex-wrap justify-between items-center gap-4 mb-12 sm:mb-16">
+    <div className="min-h-screen bg-background transition-colors duration-300">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
+
+        {/* ── Navbar ── */}
+        <nav className="flex justify-between items-center mb-16 sm:mb-20 lg:mb-24">
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="relative">
-              <ShoppingBag className="size-8 sm:size-10 text-primary transform group-hover:scale-110 transition-transform duration-300" />
-              <div className="absolute inset-0 bg-primary/20 blur-xl scale-0 group-hover:scale-100 transition-transform duration-300"></div>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-primary">KlikNesa</h1>
+            <ShoppingBag className="size-6 text-primary group-hover:scale-110 transition-transform duration-200" />
+            <span className="text-lg font-bold text-primary tracking-tight">KlikNesa</span>
           </Link>
 
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-2">
             <button
               onClick={toggleTheme}
-              className="p-2 sm:p-2.5 rounded-lg bg-card border-2 border-border hover:bg-accent transition-all duration-300 hover:scale-105"
+              className="p-2 rounded-lg hover:bg-accent transition-colors duration-200"
               aria-label="Toggle theme"
             >
-              {theme === 'light' ? (
-                <Moon className="size-5 sm:size-6 text-foreground" />
-              ) : (
-                <Sun className="size-5 sm:size-6 text-foreground" />
-              )}
+              {theme === 'light'
+                ? <Moon className="size-4 text-muted-foreground" />
+                : <Sun className="size-4 text-muted-foreground" />}
             </button>
 
             <button
               onClick={() => setLanguage(language === 'en' ? 'id' : 'en')}
-              className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg bg-card border-2 border-border hover:bg-accent transition-all duration-300 hover:scale-105 flex items-center gap-1.5 sm:gap-2"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-accent transition-colors duration-200 text-sm text-muted-foreground font-medium"
             >
-              <Languages className="size-4 sm:size-5" />
-              <span className="text-sm sm:text-base font-medium">{language === 'en' ? 'EN' : 'ID'}</span>
+              <Languages className="size-4" />
+              {language === 'en' ? 'EN' : 'ID'}
             </button>
 
             <Link
               to="/login"
-              className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg border-2 border-primary text-primary font-medium hover:bg-primary/10 transition-all duration-300 hover:scale-105 text-sm sm:text-base"
+              className="px-4 py-1.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors duration-200"
             >
               {t('nav.login')}
             </Link>
             <Link
               to="/signup"
-              className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-all duration-300 hover:scale-105 hover:shadow-lg text-sm sm:text-base"
+              className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors duration-200 shadow-sm"
             >
               {t('nav.signup')}
             </Link>
           </div>
         </nav>
 
-        <div className="text-center max-w-4xl mx-auto mb-12 sm:mb-16 animate-fade-in">
-          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4 sm:mb-6 leading-tight">
+        {/* ── Hero ── */}
+        <div className="text-center max-w-4xl mx-auto mb-16 sm:mb-20 lg:mb-24 animate-fade-in">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-foreground mb-5 sm:mb-6 leading-tight tracking-tight">
             {t('landing.title')}
           </h2>
-          <p className="text-base sm:text-lg md:text-xl text-muted-foreground mb-6 sm:mb-8 leading-relaxed px-4">
+          <p className="text-sm sm:text-base md:text-lg lg:text-xl text-muted-foreground mb-8 sm:mb-10 leading-relaxed max-w-2xl mx-auto">
             {t('landing.subtitle')}
           </p>
-          <Link
-            to="/signup"
-            className="inline-block px-6 sm:px-8 py-3 sm:py-4 rounded-lg bg-primary text-primary-foreground text-base sm:text-lg font-medium hover:bg-primary/90 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 transform"
-          >
-            {t('landing.getStarted')}
-          </Link>
+          <div className="flex items-center justify-center gap-3">
+            <Link
+              to="/signup"
+              className="px-5 py-2.5 sm:px-7 sm:py-3 lg:px-8 lg:py-3.5 rounded-lg bg-primary text-primary-foreground text-sm sm:text-base font-semibold hover:bg-primary/90 transition-colors duration-200 shadow-sm hover:shadow-md"
+            >
+              {t('landing.getStarted')}
+            </Link>
+            <Link
+              to="/login"
+              className="px-5 py-2.5 sm:px-7 sm:py-3 lg:px-8 lg:py-3.5 rounded-lg border border-border text-sm sm:text-base font-medium text-foreground hover:bg-accent transition-colors duration-200"
+            >
+              {t('nav.login')}
+            </Link>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 max-w-6xl mx-auto mb-12 sm:mb-16">
-          {[
-            { icon: Shield, title: t('landing.studentVerified'), desc: t('landing.studentVerifiedDesc') },
-            { icon: MapPin, title: t('landing.campusFocused'), desc: t('landing.campusFocusedDesc') },
-            { icon: Handshake, title: t('landing.safeTrading'), desc: t('landing.safeTradingDesc') },
-            { icon: ShoppingBag, title: t('landing.affordable'), desc: t('landing.affordableDesc') },
-          ].map((feature, index) => (
+        {/* ── Feature cards ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mb-14 sm:mb-16 lg:mb-20">
+          {features.map((feature, index) => (
             <div
               key={index}
-              className="bg-card p-6 sm:p-8 rounded-xl border-2 border-border shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-105 hover:border-primary/50 group animate-slide-up"
-              style={{ animationDelay: `${index * 100}ms` }}
+              className="bg-card p-5 lg:p-6 rounded-xl border border-border shadow-none hover:shadow-md transition-shadow duration-300 group animate-slide-up"
+              style={{ animationDelay: `${index * 80}ms` }}
             >
-              <feature.icon className="size-12 sm:size-14 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
-              <h3 className="text-lg sm:text-xl font-bold text-foreground mb-2">{feature.title}</h3>
-              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+              <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                <feature.icon className="size-4 text-primary" />
+              </div>
+              <h3 className="text-sm lg:text-base font-semibold text-foreground mb-1.5 leading-snug">
+                {feature.title}
+              </h3>
+              <p className="text-xs lg:text-sm text-muted-foreground leading-relaxed">
                 {feature.desc}
               </p>
             </div>
           ))}
         </div>
 
-        <div className="text-center bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-8 sm:p-12 rounded-2xl border-2 border-primary/20 hover:border-primary/40 transition-all duration-300 max-w-4xl mx-auto">
-          <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-3 sm:mb-4">
-            {t('landing.readyToStart')}
-          </h3>
-          <p className="text-base sm:text-lg text-muted-foreground mb-6 sm:mb-8 max-w-2xl mx-auto leading-relaxed">
-            {t('landing.joinCommunity')}
-          </p>
+        {/* ── CTA banner ── */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-5 bg-primary/5 border border-primary/20 rounded-xl px-6 sm:px-8 py-6 sm:py-7">
+          <div className="text-center sm:text-left">
+            <h3 className="text-base sm:text-lg font-bold text-foreground">
+              {t('landing.readyToStart')}
+            </h3>
+            <p className="text-sm sm:text-base text-muted-foreground mt-0.5">
+              {t('landing.joinCommunity')}
+            </p>
+          </div>
           <Link
             to="/signup"
-            className="inline-block px-6 sm:px-8 py-3 sm:py-4 rounded-lg bg-secondary text-secondary-foreground font-medium hover:bg-secondary/90 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 transform text-base sm:text-lg"
+            className="shrink-0 px-6 py-2.5 sm:px-7 sm:py-3 rounded-lg bg-secondary text-secondary-foreground text-sm sm:text-base font-semibold hover:bg-secondary/90 transition-colors duration-200 shadow-sm hover:shadow-md whitespace-nowrap"
           >
             {t('landing.createAccount')}
           </Link>
         </div>
 
-        <div className="mt-12 sm:mt-16 text-center">
+        {/* ── Footer link ── */}
+        <div className="mt-10 sm:mt-12 text-center">
           <Link
             to="/contact"
-            className="inline-block text-muted-foreground hover:text-primary transition-colors duration-300 text-sm sm:text-base"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors duration-200"
           >
             {t('contact.title')}
           </Link>
         </div>
+
       </div>
     </div>
   );

@@ -22,6 +22,8 @@ import {
   Phone,
   Store,
   Clock,
+  LayoutDashboard,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -39,6 +41,7 @@ const fadeOnExpand =
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user } = useAuth();
+  const isAdmin = !!user?.email?.endsWith('@admin.com');
   const { t, language, setLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const { mode, setMode } = useUserMode();
@@ -77,10 +80,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const sellerItems = [
     { icon: Package,       label: language === 'en' ? 'My Listings' : 'Listing Saya', path: '/my-listings' },
     { icon: MessageCircle, label: language === 'en' ? 'Messages'    : 'Pesan',         path: '/conversations' },
-    { icon: Shield,        label: language === 'en' ? 'Admin'       : 'Admin',         path: '/admin' },
   ];
 
-  const navItems = user && mode === 'seller' ? sellerItems : buyerItems;
+  const adminItems = [
+    { icon: LayoutDashboard, label: t('admin.navDashboard'), path: '/admin' },
+    { icon: AlertTriangle,   label: t('admin.navReports'),   path: '/admin/reports' },
+  ];
+
+  const navItems = isAdmin
+    ? adminItems
+    : user && mode === 'seller'
+      ? sellerItems
+      : buyerItems;
 
   return (
     <>
@@ -162,18 +173,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     </div>
                   )}
                   <div className={`flex-1 min-w-0 ${fadeOnExpand}`}>
-                    <p className="text-sm font-semibold text-foreground truncate whitespace-nowrap leading-tight">
+                    <p className="text-sm font-semibold text-foreground truncate whitespace-nowrap leading-tight flex items-center gap-1.5">
                       {user.name}
+                      {isAdmin && (
+                        <span className="text-[9px] font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full uppercase tracking-wide shrink-0">
+                          Admin
+                        </span>
+                      )}
                     </p>
                     <p className="text-xs text-muted-foreground truncate whitespace-nowrap leading-tight">
-                      {user.campus}
+                      {isAdmin ? user.email : user.campus}
                     </p>
                   </div>
                   <span className={`text-xs text-muted-foreground shrink-0 ${fadeOnExpand}`}>⚙</span>
                 </button>
 
-                {/* Role switcher — hidden desktop collapsed, shown on hover */}
-                <div className="mt-2 flex lg:hidden lg:group-hover/sidebar:flex">
+                {/* Role switcher — hanya untuk non-admin */}
+                {!isAdmin && <div className="mt-2 flex lg:hidden lg:group-hover/sidebar:flex">
                   {mode === 'seller' ? (
                     /* In seller mode → show "switch back to buyer" */
                     <button
@@ -219,7 +235,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                       </span>
                     </button>
                   )}
-                </div>
+                </div>}
               </>
             ) : (
               <div className={`flex gap-2 ${fadeOnExpand}`}>
@@ -236,8 +252,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           {/* ── Navigasi ── */}
           <nav className="flex-1 px-2 py-2 flex flex-col gap-0.5 min-h-0 overflow-hidden">
 
-            {/* Statistik penjual — hanya saat seller mode, disembunyikan collapsed */}
-            {user && mode === 'seller' && (
+            {/* Statistik penjual — hanya saat seller mode dan bukan admin */}
+            {user && mode === 'seller' && !isAdmin && (
               <>
                 <div className="grid grid-cols-3 gap-1 rounded-lg border border-border bg-muted/40 p-2 mb-2 text-center lg:hidden lg:group-hover/sidebar:grid">
                   <div>

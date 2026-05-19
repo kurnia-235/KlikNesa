@@ -48,7 +48,7 @@ function openWhatsApp(whatsappNumber: string, productTitle: string) {
   window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
 }
 
-const CAMPUSES = ['All', 'Ketintang', 'Lidah Wetan', 'Magetan'];
+const CAMPUSES = ['All', 'Lidah Wetan', 'Ketintang', 'Moestopo', 'Magetan'];
 
 // ─── Seller Dashboard ─────────────────────────────────────
 function SellerDashboard() {
@@ -96,10 +96,10 @@ function SellerDashboard() {
 
   return (
     <Layout>
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {/* Heading */}
         <div>
-          <h1 className="text-xl font-bold text-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
             {language === 'en' ? 'Seller Dashboard' : 'Dashboard Penjual'}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
@@ -260,7 +260,7 @@ function BuyerCatalog() {
   return (
     <Layout>
       <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 sm:px-6 py-6 space-y-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
           {/* Welcome banner */}
           <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20 rounded-xl p-4 sm:p-6">

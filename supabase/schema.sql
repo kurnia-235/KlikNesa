@@ -153,7 +153,32 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS whatsapp_verified BOOLEAN D
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ktm_url          TEXT    DEFAULT '';
 
 -- ---------------------------------------------------------------
--- 8. Catatan pengaturan Auth di Supabase Dashboard
+-- 8. Tabel reports — laporan dari user mengenai listing atau sistem
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.reports (
+  id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporter_id UUID         REFERENCES public.profiles(id) ON DELETE SET NULL,
+  product_id  UUID         REFERENCES public.products(id) ON DELETE SET NULL,
+  report_type TEXT         NOT NULL DEFAULT 'other'
+                           CHECK (report_type IN ('spam', 'fraud', 'inappropriate', 'other')),
+  description TEXT         NOT NULL DEFAULT '',
+  status      TEXT         NOT NULL DEFAULT 'open'
+                           CHECK (status IN ('open', 'reviewing', 'resolved', 'dismissed')),
+  created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
+
+-- User terautentikasi dapat membuat laporan
+CREATE POLICY "reports_insert_auth" ON public.reports
+  FOR INSERT WITH CHECK (auth.uid() = reporter_id);
+
+-- User hanya bisa lihat laporan miliknya sendiri
+CREATE POLICY "reports_select_own" ON public.reports
+  FOR SELECT USING (auth.uid() = reporter_id);
+
+-- ---------------------------------------------------------------
+-- 9. Catatan pengaturan Auth di Supabase Dashboard
 -- ---------------------------------------------------------------
 -- Untuk menonaktifkan verifikasi email (saat development):
 -- Dashboard > Authentication > Providers > Email

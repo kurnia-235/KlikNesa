@@ -624,7 +624,9 @@ async function sendOtpLogic(userId: string, phone: string): Promise<{ ok: boolea
     return { ok: false, error: 'Konfigurasi Fonnte belum diset di server. Tambahkan FONNTE_TOKEN ke Secrets.' };
   }
 
-  const message = `[KlikNesa] Kode OTP Verifikasi Penjual Anda adalah: ${otp}. Jangan bagikan kode ini kepada siapa pun yaa.`;
+  const message = `[KlikNesa]
+
+Kode OTP Verifikasi Penjual Anda adalah: *_${otp}_*. Jangan bagikan kode ini kepada siapa pun yaa.`;
 
   console.log(`[send-otp] Menembak Fonnte → api.fonnte.com/send | To: ${waPhone}`);
 
@@ -663,6 +665,60 @@ async function sendOtpLogic(userId: string, phone: string): Promise<{ ok: boolea
       ok: false,
       error: `Gagal menghubungi Fonnte: ${(err as Error)?.message ?? String(err)}`,
     };
+  }
+}
+
+async function sendVerificationSuccessLogic(
+  phone: string,
+  name: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const waPhone = normalizePhone(phone);
+  if (!waPhone) {
+    return { ok: false, error: 'Nomor WhatsApp tidak valid.' };
+  }
+
+  const fonnteToken = Deno.env.get('FONNTE_TOKEN') ?? '';
+  if (!fonnteToken) {
+    return { ok: false, error: 'FONNTE_TOKEN belum diset di Supabase Secrets.' };
+  }
+
+  const message = `[KlikNesa]
+
+Selamat, *_${name}_*! Akun Penjual Anda telah resmi diverifikasi oleh Admin KlikNesa. Sekarang Anda sudah bisa mulai mengunggah dan menjual barang bekas Anda di platform kami.
+
+Selamat berdagang!`;
+
+  const formData = new URLSearchParams();
+  formData.append('target',  waPhone);
+  formData.append('message', message);
+
+  console.log(`[send-verification-success] Mengirim notifikasi ke ${waPhone} untuk "${name}"`);
+
+  try {
+    const res  = await fetch('https://api.fonnte.com/send', {
+      method : 'POST',
+      headers: {
+        'Authorization': fonnteToken,
+        'Content-Type' : 'application/x-www-form-urlencoded',
+      },
+      body: formData.toString(),
+    });
+
+    const raw = await res.text();
+    console.log(`[send-verification-success] Fonnte HTTP ${res.status} | Body:`, raw);
+
+    let parsed: any = {};
+    try { parsed = JSON.parse(raw); } catch { /* bukan JSON */ }
+
+    if (!parsed?.status) {
+      const reason = parsed?.reason ?? parsed?.message ?? raw ?? 'Tidak ada keterangan';
+      return { ok: false, error: `Fonnte gagal: ${reason}` };
+    }
+
+    return { ok: true };
+  } catch (err) {
+    console.error('[send-verification-success] fetch EXCEPTION:', err);
+    return { ok: false, error: `Gagal menghubungi Fonnte: ${(err as Error)?.message ?? String(err)}` };
   }
 }
 
@@ -726,6 +782,15 @@ app.post("*", requireAuth, async (c) => {
       return result.ok
         ? c.json({ ok: true, phone: result.phone })
         : c.json({ error: result.error }, 400);
+    }
+
+    if (route === 'send-verification-success') {
+      const userEmail = c.get('userEmail') ?? '';
+      if (!userEmail.endsWith('@admin.com')) {
+        return c.json({ error: 'Forbidden — hanya Admin yang dapat menggunakan rute ini.' }, 403);
+      }
+      const result = await sendVerificationSuccessLogic(body.phone ?? '', body.name ?? '');
+      return result.ok ? c.json({ ok: true }) : c.json({ error: result.error }, 400);
     }
 
     return c.json({ error: 'Rute tidak dikenal.' }, 400);

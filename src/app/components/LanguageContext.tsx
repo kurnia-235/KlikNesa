@@ -30,7 +30,7 @@ const translations: Translations = {
   'landing.studentVerified': { en: 'Student Verified', id: 'Mahasiswa Terverifikasi' },
   'landing.studentVerifiedDesc': { en: 'Only verified UNESA students can join and trade', id: 'Hanya mahasiswa UNESA terverifikasi yang dapat bergabung dan berdagang' },
   'landing.campusFocused': { en: 'Campus Focused', id: 'Fokus Kampus' },
-  'landing.campusFocusedDesc': { en: 'Filter by Ketintang, Lidah Wetan, or Magetan campus', id: 'Filter berdasarkan kampus Ketintang, Lidah Wetan, atau Magetan' },
+  'landing.campusFocusedDesc': { en: 'Filter by Lidah Wetan, Ketintang, Moestopo, or Magetan campus', id: 'Filter berdasarkan kampus Lidah Wetan, Ketintang, Moestopo, atau Magetan' },
   'landing.safeTrading': { en: 'Safe Trading', id: 'Perdagangan Aman' },
   'landing.safeTradingDesc': { en: 'COD meetups and secure e-wallet payments', id: 'COD dan pembayaran e-wallet yang aman' },
   'landing.affordable': { en: 'Affordable', id: 'Terjangkau' },
@@ -138,15 +138,27 @@ const translations: Translations = {
   'conversations.noConversations': { en: 'No conversations yet', id: 'Belum ada percakapan' },
   'conversations.startChatting': { en: 'Start chatting with sellers by contacting them from listing pages', id: 'Mulai mengobrol dengan penjual dari halaman daftar' },
 
-  // Admin
-  'admin.title': { en: 'Admin Dashboard', id: 'Dashboard Admin' },
-  'admin.totalUsers': { en: 'Total Users', id: 'Total Pengguna' },
-  'admin.reports': { en: 'Reports', id: 'Laporan' },
-  'admin.activeListings': { en: 'Active Listings', id: 'Daftar Aktif' },
-  'admin.recentUsers': { en: 'Recent Users', id: 'Pengguna Terbaru' },
-  'admin.noUsers': { en: 'No users yet', id: 'Belum ada pengguna' },
-  'admin.noReports': { en: 'No reports', id: 'Tidak ada laporan' },
-  'admin.loading': { en: 'Loading admin data...', id: 'Memuat data admin...' },
+  // Admin — navigasi sidebar
+  'admin.navDashboard':      { en: 'Admin Dashboard',          id: 'Dashboard Admin' },
+  'admin.navReports':        { en: 'User Reports',             id: 'Laporan User' },
+
+  // Admin — halaman dashboard (statistik global)
+  'admin.title':             { en: 'Admin Dashboard',          id: 'Dashboard Admin' },
+  'admin.totalListings':     { en: 'Total Listings',           id: 'Total Listing' },
+  'admin.totalUsers':        { en: 'Total Users',              id: 'Total Pengguna' },
+  'admin.totalTransactions': { en: 'Successful Transactions',  id: 'Transaksi Berhasil' },
+  'admin.activeListings':    { en: 'Active Listings',          id: 'Daftar Aktif' },
+  'admin.recentUsers':       { en: 'Recent Users',             id: 'Pengguna Terbaru' },
+  'admin.noUsers':           { en: 'No users yet',             id: 'Belum ada pengguna' },
+  'admin.loading':           { en: 'Loading admin data...',    id: 'Memuat data admin...' },
+
+  // Admin — halaman laporan user
+  'admin.reportsTitle':      { en: 'User Reports',             id: 'Laporan User' },
+  'admin.totalReports':      { en: 'Total Reports',            id: 'Jumlah Laporan' },
+  'admin.resolvedReports':   { en: 'Resolved',                 id: 'Selesai' },
+  'admin.openReports':       { en: 'Open Reports',             id: 'Laporan Terbuka' },
+  'admin.reports':           { en: 'Reports',                  id: 'Laporan' },
+  'admin.noReports':         { en: 'No reports received yet.', id: 'Belum ada laporan yang masuk.' },
 
   // Contact
   'contact.title': { en: 'Contact Us', id: 'Hubungi Kami' },

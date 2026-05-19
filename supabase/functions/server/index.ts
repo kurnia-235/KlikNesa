@@ -9,15 +9,31 @@ const app = new Hono();
 // Enable logger
 app.use('*', logger(console.log));
 
-// Enable CORS for all routes and methods
+// ── CORS — harus diregistrasi SEBELUM semua route ────────────────────────────
+// Sertakan x-client-info & apikey karena Supabase SDK mengirimnya secara otomatis.
+// Tanpa kedua header ini di allowHeaders, browser memblokir preflight OPTIONS.
 app.use(
   "/*",
   cors({
     origin: "*",
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: ["Content-Type", "Authorization", "x-client-info", "apikey"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     exposeHeaders: ["Content-Length"],
-    maxAge: 600,
+    maxAge: 86400,
+  }),
+);
+
+// Explicit OPTIONS handler — browser selalu kirim preflight OPTIONS terlebih dahulu.
+// Hono perlu merespons 204 secara eksplisit agar fetch tidak diblokir.
+app.options("*", (c) =>
+  new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, x-client-info, apikey",
+      "Access-Control-Max-Age": "86400",
+    },
   }),
 );
 
@@ -562,11 +578,10 @@ app.get("/make-server-2fc7af5c/admin/users", requireAuth, async (c) => {
   }
 });
 
-// ============== WHATSAPP OTP ENDPOINTS ==============
+// ============== WHATSAPP OTP ==============
 
 const OTP_TTL_MS = 5 * 60 * 1000; // 5 menit
 
-/** Normalisasi nomor WA ke format 62xxxxxxxxxx untuk Wablas */
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '');
   if (digits.startsWith('62')) return digits;
@@ -574,88 +589,77 @@ function normalizePhone(raw: string): string {
   return '62' + digits;
 }
 
-// POST /make-server-2fc7af5c/send-otp
-// Body: { phone: string }
-// Generates 4-digit OTP, sends via Wablas, stores in KV with TTL.
-app.post("/make-server-2fc7af5c/send-otp", requireAuth, async (c) => {
-  try {
-    const { phone } = await c.req.json();
-    const userId = c.get('userId');
-
-    const cleaned = phone?.replace(/\D/g, '') ?? '';
-    if (cleaned.length < 9 || cleaned.length > 13) {
-      return c.json({ error: 'Nomor WhatsApp tidak valid (9–13 digit).' }, 400);
-    }
-
-    const waPhone = normalizePhone(cleaned);
-    const otp = Math.floor(1000 + Math.random() * 9000);
-
-    // Simpan OTP di KV dengan timestamp expiry
-    await kv.set(`otp:${userId}`, {
-      code: otp,
-      phone: waPhone,
-      expiresAt: Date.now() + OTP_TTL_MS,
-    });
-
-    // Kirim via Wablas
-    // Format standar: POST https://{domain}/api/send-message, token di Authorization header
-    const wablasDomain = Deno.env.get('WABLAS_DOMAIN') ?? 'console.wablas.com';
-    const wablasToken = Deno.env.get('WABLAS_TOKEN') ?? '';
-    const wablasUrl = `https://${wablasDomain}/api/send-message`;
-    const message =
-      `[KlikNesa] Kode OTP Verifikasi Penjual Anda adalah: ${otp}. ` +
-      `Jangan bagikan kode ini kepada siapa pun yaa.`;
-
-    console.log(`[send-otp] Mengirim ke ${waPhone} via ${wablasUrl}`);
-
-    const res = await fetch(wablasUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': wablasToken,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ phone: waPhone, message }),
-    });
-
-    const resText = await res.text();
-    console.log(`[send-otp] Wablas response ${res.status}:`, resText);
-
-    if (!res.ok) {
-      return c.json({ error: `Gagal mengirim OTP via WhatsApp (${res.status}). Coba lagi.` }, 502);
-    }
-
-    return c.json({ ok: true });
-  } catch (err) {
-    console.error('[send-otp] exception:', err);
-    return c.json({ error: 'Internal server error' }, 500);
+async function sendOtpLogic(userId: string, phone: string): Promise<{ ok: boolean; error?: string }> {
+  const cleaned = phone?.replace(/\D/g, '') ?? '';
+  if (cleaned.length < 9 || cleaned.length > 13) {
+    return { ok: false, error: 'Nomor WhatsApp tidak valid (9–13 digit).' };
   }
-});
+  const waPhone = normalizePhone(cleaned);
+  const otp = Math.floor(1000 + Math.random() * 9000);
 
-// POST /make-server-2fc7af5c/verify-otp
-// Body: { code: string }
-// Returns { ok: true, phone: string } on success, error otherwise.
-app.post("/make-server-2fc7af5c/verify-otp", requireAuth, async (c) => {
+  await kv.set(`otp:${userId}`, {
+    code: otp, phone: waPhone, expiresAt: Date.now() + OTP_TTL_MS,
+  });
+
+  const wablasDomain = Deno.env.get('WABLAS_DOMAIN') ?? 'console.wablas.com';
+  const wablasToken  = Deno.env.get('WABLAS_TOKEN') ?? '';
+  const wablasUrl    = `https://${wablasDomain}/api/send-message`;
+  const message      =
+    `[KlikNesa] Kode OTP Verifikasi Penjual Anda adalah: ${otp}. ` +
+    `Jangan bagikan kode ini kepada siapa pun yaa.`;
+
+  console.log(`[send-otp] → ${waPhone} via ${wablasUrl}`);
+  const res = await fetch(wablasUrl, {
+    method: 'POST',
+    headers: { 'Authorization': wablasToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone: waPhone, message }),
+  });
+  const resText = await res.text();
+  console.log(`[send-otp] Wablas ${res.status}:`, resText);
+
+  if (!res.ok) return { ok: false, error: `Gagal mengirim OTP (${res.status}). Coba lagi.` };
+  return { ok: true };
+}
+
+async function verifyOtpLogic(userId: string, code: string): Promise<{ ok: boolean; phone?: string; error?: string }> {
+  const record = await kv.get(`otp:${userId}`);
+  if (!record) return { ok: false, error: 'OTP tidak ditemukan. Silakan kirim ulang.' };
+  if (Date.now() > record.expiresAt) {
+    await kv.del(`otp:${userId}`);
+    return { ok: false, error: 'OTP sudah kedaluwarsa (5 menit). Silakan kirim ulang.' };
+  }
+  if (String(record.code) !== String(code).trim()) {
+    return { ok: false, error: 'Kode OTP salah. Silakan coba lagi.' };
+  }
+  await kv.del(`otp:${userId}`);
+  return { ok: true, phone: record.phone };
+}
+
+// ── Root dispatcher ────────────────────────────────────────────────────────────
+// supabase.functions.invoke('server', { body: { route: '...', ... } }) mengirim
+// request ke path '/' (bukan subpath). Dispatcher ini menangani routing OTP
+// berdasarkan field `route` di dalam body request.
+app.post("/", requireAuth, async (c) => {
   try {
-    const { code } = await c.req.json();
+    const body   = await c.req.json();
+    const route  = body.route;
     const userId = c.get('userId');
 
-    const record = await kv.get(`otp:${userId}`);
-    if (!record) {
-      return c.json({ error: 'OTP tidak ditemukan. Silakan kirim ulang.' }, 400);
-    }
-    if (Date.now() > record.expiresAt) {
-      await kv.del(`otp:${userId}`);
-      return c.json({ error: 'OTP sudah kedaluwarsa (5 menit). Silakan kirim ulang.' }, 400);
-    }
-    if (String(record.code) !== String(code).trim()) {
-      return c.json({ error: 'Kode OTP salah. Silakan coba lagi.' }, 400);
+    if (route === 'send-otp') {
+      const result = await sendOtpLogic(userId, body.phone ?? '');
+      return result.ok ? c.json({ ok: true }) : c.json({ error: result.error }, 400);
     }
 
-    // OTP valid — hapus agar tidak bisa dipakai ulang
-    await kv.del(`otp:${userId}`);
-    return c.json({ ok: true, phone: record.phone });
+    if (route === 'verify-otp') {
+      const result = await verifyOtpLogic(userId, body.code ?? '');
+      return result.ok
+        ? c.json({ ok: true, phone: result.phone })
+        : c.json({ error: result.error }, 400);
+    }
+
+    return c.json({ error: 'Rute tidak dikenal.' }, 400);
   } catch (err) {
-    console.error('[verify-otp] exception:', err);
+    console.error('[root-dispatcher] exception:', err);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });

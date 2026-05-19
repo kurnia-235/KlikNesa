@@ -80,12 +80,13 @@ export default function SellerVerification() {
     setOtpError('');
     setOtpInput('');
 
-    // supabase.functions.invoke otomatis menyertakan Bearer token sesi aktif
-    // dan menangani CORS lewat Supabase client — tidak perlu raw fetch manual
-    const { data, error } = await supabase.functions.invoke(
-      'server/make-server-2fc7af5c/send-otp',
-      { body: { phone: waNumber } },
-    );
+    // invoke('server', ...) → request ke root '/' function, bukan subpath.
+    // Gateway Supabase hanya mengenal nama function 'server', subpath di nama
+    // function menyebabkan gateway gagal merutekan sehingga CORS error.
+    // Route OTP dikodekan di dalam body { route: '...' }.
+    const { data, error } = await supabase.functions.invoke('server', {
+      body: { route: 'send-otp', phone: waNumber },
+    });
 
     setSendingOtp(false);
 
@@ -106,10 +107,9 @@ export default function SellerVerification() {
     setVerifyingOtp(true);
     setOtpError('');
 
-    const { data, error } = await supabase.functions.invoke(
-      'server/make-server-2fc7af5c/verify-otp',
-      { body: { code: otpInput } },
-    );
+    const { data, error } = await supabase.functions.invoke('server', {
+      body: { route: 'verify-otp', code: otpInput },
+    });
 
     setVerifyingOtp(false);
 
